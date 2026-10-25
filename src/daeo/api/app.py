@@ -111,19 +111,26 @@ def _solve(
             if array.enabled
         ]
         provider = pv_provider or ForecastSolarProvider()
-        pv_kwh = provider.fetch_pv(
-            start,
-            end,
-            minutes,
-            arrays,
-            latitude=config.home.latitude,
-            longitude=config.home.longitude,
-            timezone=config.home.timezone,
-        )
-        if len(pv_kwh) != count:
-            raise ProviderError(
-                "Forecast.Solar returned a different number of intervals than prices"
+        try:
+            pv_kwh = provider.fetch_pv(
+                start,
+                end,
+                minutes,
+                arrays,
+                latitude=config.home.latitude,
+                longitude=config.home.longitude,
+                timezone=config.home.timezone,
             )
+            if len(pv_kwh) != count:
+                raise ProviderError(
+                    "Forecast.Solar returned a different number of intervals than prices"
+                )
+        except ProviderError as error:
+            # A forecast provider outage/rate limit must not block config saves,
+            # load-profile recalculation, or battery control. Fall back to the
+            # synthetic PV curve and surface the fallback in plan sources.
+            logger.warning("PV forecast failed; using synthetic PV: %s", error)
+            pv_kwh = None
 
     load_kwh = _load_profile_for_intervals(
         load_profile,
@@ -141,7 +148,9 @@ def _solve(
             else "synthetic"
         ),
         "pv": (
-            "forecast_solar"
+            "synthetic"
+            if pv_kwh is None
+            else "forecast_solar"
             if config.forecast.solar_source is SolarForecastSource.FORECAST_SOLAR
             else "synthetic"
         ),
@@ -410,19 +419,25 @@ def create_app(
     @app.put("/api/v1/config", tags=["config"], dependencies=[Depends(require_api)])
     def update_config(payload: Config, request: Request) -> dict:
         store: SqliteStore = request.app.state.store
+        previous_config = request.app.state.config
+        load_changed = payload.load != previous_config.load
         hash_value = config_hash(payload)
         store.save_config(payload)
         request.app.state.config = payload
         request.app.state.config_hash = hash_value
 
-        load_profile = None
+        load_profile = request.app.state.load_profile
         load_profile_error = None
-        if payload.load.source is LoadSource.RECORDER:
+        if payload.load.source is LoadSource.RECORDER and (
+            load_changed or load_profile is None
+        ):
             try:
                 load_profile = _calculate_load_profile(store, payload)
             except RecorderError as error:
                 load_profile_error = str(error)
                 logger.warning("Load profile calculation failed: %s", error)
+        elif payload.load.source is not LoadSource.RECORDER:
+            load_profile = None
         request.app.state.load_profile = load_profile
 
         plan = _solve(

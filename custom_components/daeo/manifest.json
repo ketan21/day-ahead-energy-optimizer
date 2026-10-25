@@ -8,5 +8,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/ketan21/day-ahead-energy-optimizer/issues",
   "requirements": [],
-  "version": "2.1.4"
+  "version": "2.1.5"
 }

@@ -26,6 +26,15 @@ remains in [`dao/CHANGELOG.md`](dao/CHANGELOG.md) until the M4 cutover.
 - `docker-compose.yml`: standalone demo.
 - `pyproject.toml` and a dedicated CI workflow.
 
+### Fixed — 2.1.5
+
+- A Forecast.Solar outage or rate limit no longer blocks config saves, load-profile
+  recalculation, or battery control. The engine falls back to the synthetic PV curve
+  and marks the plan source as `pv: synthetic` instead of returning HTTP 502.
+- Config saves only recalculate the recorder load profile when the `load` section
+  actually changed. Saving unrelated fields such as the P1 grid settings no longer
+  triggers a 365-day statistics scan.
+
 ### Fixed — 2.1.4
 
 - Every integration optimize path now sends the live battery SOC. The controller

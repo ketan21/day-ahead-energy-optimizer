@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -13,6 +13,7 @@ from daeo.api.settings import Settings
 from daeo.config.models import Config
 from daeo.domain.inputs import PricePoint
 from daeo.providers.base import ProviderError
+from daeo.providers.recorder import LoadProfileSet
 
 
 def valid_payload() -> dict:
@@ -276,3 +277,80 @@ def test_optimize_reuses_last_battery_soc(client, auth_headers) -> None:
     assert response.status_code == 200
     health = client.get("/api/v1/health").json()
     assert health["last_battery_soc_pct"] == 29
+
+
+class FailingPvProvider:
+    def fetch_pv(self, *args, **kwargs):
+        raise ProviderError("Forecast.Solar rate limit reached")
+
+
+def test_pv_provider_failure_falls_back_to_synthetic(settings, auth_headers) -> None:
+    with TestClient(create_app(settings, pv_provider=FailingPvProvider())) as client:
+        payload = Config.default().model_dump(mode="json")
+        payload["forecast"]["solar_source"] = "forecast_solar"
+        payload["solar"] = [
+            {
+                "name": "Roof",
+                "peak_power_wp": 4000,
+                "tilt_deg": 35,
+                "azimuth_deg": 180,
+            }
+        ]
+        response = client.put(
+            "/api/v1/config",
+            headers=auth_headers,
+            json=payload,
+        )
+        assert response.status_code == 200
+        plan = client.get(
+            "/api/v1/plan/latest", headers=auth_headers
+        ).json()
+        assert plan["sources"]["pv"] == "synthetic"
+
+
+def test_config_save_skips_unchanged_load_profile_recalculation(
+    settings, auth_headers, monkeypatch
+) -> None:
+    calls = []
+    now = datetime.now(UTC)
+    profile = LoadProfileSet(
+        profiles={month: [0.0] * 24 for month in range(1, 13)},
+        generated_at=now,
+        start=now - timedelta(days=365),
+        end=now,
+    )
+
+    def fake_calculate(store, config):
+        calls.append(config.load)
+        return profile
+
+    monkeypatch.setattr("daeo.api.app._calculate_load_profile", fake_calculate)
+
+    with TestClient(create_app(settings)) as client:
+        payload = Config.default().model_dump(mode="json")
+        payload["load"] = {
+            "source": "recorder",
+            "database_url": "/tmp/ha.db",
+            "lookback_days": 365,
+            "grid_import_sensors": ["sensor.p1_import"],
+            "grid_export_sensors": ["sensor.p1_export"],
+            "solar_production_sensors": [],
+            "battery_charge_sensors": [],
+            "battery_discharge_sensors": [],
+            "ev_charge_sensors": [],
+            "boiler_sensors": [],
+            "heat_pump_sensors": [],
+            "machine_sensors": [],
+        }
+        response = client.put(
+            "/api/v1/config", headers=auth_headers, json=payload
+        )
+        assert response.status_code == 200
+        assert len(calls) == 1
+
+        payload["grid"]["max_import_kw"] = 16.0
+        response = client.put(
+            "/api/v1/config", headers=auth_headers, json=payload
+        )
+        assert response.status_code == 200
+        assert len(calls) == 1
