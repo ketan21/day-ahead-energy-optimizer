@@ -1,0 +1,39 @@
+optimize:
+  name: Run optimization
+  description: Ask the DAEO engine to recompute the plan.
+  fields: {}
+
+set_strategy:
+  name: Set strategy
+  description: Change the optimization objective.
+  fields:
+    objective:
+      name: Objective
+      description: Optimization objective.
+      required: true
+      example: minimize_cost
+      selector:
+        select:
+          options:
+            - minimize_cost
+            - minimize_import
+
+export_plan:
+  name: Export plan
+  description: Return the latest plan as a service response.
+  fields: {}
+
+arm_control:
+  name: Arm battery control
+  description: Enable applying the current plan interval to the configured battery entities.
+  fields: {}
+
+disarm_control:
+  name: Disarm battery control
+  description: Stop control and write the configured idle state.
+  fields: {}
+
+apply_now:
+  name: Apply now
+  description: Evaluate the current plan and write the battery setpoint immediately.
+  fields: {}

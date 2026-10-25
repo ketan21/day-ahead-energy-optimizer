@@ -1,0 +1,18 @@
+services:
+  daeo:
+    build:
+      context: .
+      dockerfile: addon/Dockerfile
+    ports:
+      - "8099:8099"
+    environment:
+      DAEO_DEMO: "1"
+      DAEO_DATA_DIR: /data
+    volumes:
+      - daeo-data:/data
+      # Optional: mount the Home Assistant config directory to read recorder
+      # statistics for real load profiles. Set HA_CONFIG_DIR on the host.
+      # - ${HA_CONFIG_DIR:-/config}:/homeassistant:ro
+
+volumes:
+  daeo-data:

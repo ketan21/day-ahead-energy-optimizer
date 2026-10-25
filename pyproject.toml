@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "daeo"
+version = "2.1.0.dev0"
+description = "Day Ahead Energy Optimizer engine: plan battery, boiler, heat pump and EV use against dynamic prices."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Day Ahead Energy Optimizer contributors" }]
+keywords = ["home-assistant", "energy", "optimization", "day-ahead", "battery"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "cbcbox==2.929",
+    "fastapi>=0.115",
+    "httpx>=0.27",
+    "mip==1.17.6",
+    "pydantic>=2.10",
+    "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[project.urls]
+Homepage = "https://github.com/ketan21/day-ahead-energy-optimizer"
+Documentation = "https://github.com/ketan21/day-ahead-energy-optimizer/blob/main/docs/rebuild-proposal.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+daeo = ["web/*.html", "web/*.js", "web/*.css"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/daeo"]
+pythonpath = ["src"]
+addopts = "-q"

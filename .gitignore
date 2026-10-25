@@ -31,3 +31,8 @@ dao/webserver/app/static/build
 /dao/data/meta
 
 /.local/
+.daeo-data/
+*.egg-info/
+dist/
+build/
+.venv-ha/

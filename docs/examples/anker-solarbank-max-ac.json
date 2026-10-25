@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "home": {
+    "name": "Home",
+    "latitude": 52.37,
+    "longitude": 4.89,
+    "timezone": "Europe/Amsterdam",
+    "country": "NL",
+    "currency": "EUR"
+  },
+  "prices": {
+    "source": "energyzero",
+    "area": "NL",
+    "preset": "nl",
+    "fixed_export_price_eur_kwh": 0.0,
+    "supplier_markup_import_eur_kwh": 0.02,
+    "energy_tax_import_eur_kwh": 0.11,
+    "vat_pct": 21.0,
+    "feed_in_tariff_eur_kwh": 0.0,
+    "tax_refund": true
+  },
+  "forecast": {
+    "solar_source": "forecast_solar"
+  },
+  "load": {
+    "source": "recorder",
+    "database_url": "/homeassistant/home-assistant_v2.db",
+    "lookback_days": 365,
+    "grid_import_sensors": ["sensor.p1_meter_energy_import"],
+    "grid_export_sensors": ["sensor.p1_meter_energy_export"],
+    "solar_production_sensors": ["sensor.envoy_122325114155_lifetime_energy_production"],
+    "battery_charge_sensors": ["sensor.anker_solix_solarbank_max_ac_241_battery_charging_energy"],
+    "battery_discharge_sensors": ["sensor.anker_solix_solarbank_max_ac_241_battery_discharge_energy"],
+    "ev_charge_sensors": [],
+    "boiler_sensors": [],
+    "heat_pump_sensors": [],
+    "machine_sensors": []
+  },
+  "strategy": {
+    "objective": "minimize_cost",
+    "interval": "quarter_hour",
+    "allow_export": true,
+    "reserve_soc_pct": 20.0,
+    "cycle_cost_eur_kwh": 0.02,
+    "max_gap_eur": 0.005,
+    "solver_threads": 0
+  },
+  "grid": {
+    "max_import_kw": 17.0,
+    "max_export_kw": 17.0
+  },
+  "solar": [
+    {
+      "name": "Enphase roof",
+      "enabled": true,
+      "peak_power_wp": 5000.0,
+      "dc_coupled": false,
+      "tilt_deg": 35.0,
+      "azimuth_deg": 180.0
+    }
+  ],
+  "batteries": [
+    {
+      "name": "Anker Solarbank Max AC",
+      "enabled": true,
+      "capacity_kwh": 7.2,
+      "max_charge_kw": 1.2,
+      "max_discharge_kw": 1.2,
+      "efficiency": 0.95,
+      "min_soc_pct": 20.0,
+      "max_soc_pct": 100.0,
+      "soc_entity": "sensor.anker_solix_solarbank_max_ac_241_soc",
+      "setpoint_entity": "number.anker_solix_solarbank_max_ac_241_target_grid_power",
+      "setpoint_is_unsigned": true,
+      "mode_entity": "select.anker_solix_solarbank_max_ac_241_grid_flow",
+      "mode_charge": "charge",
+      "mode_discharge": "discharge",
+      "mode_idle": null,
+      "control_mode_entity": "select.anker_solix_solarbank_max_ac_241_operating_mode_device_runs_by_command_in_third_party_controlled",
+      "control_mode_value": "third_party_control",
+      "control_mode_fallback": "self_consumption",
+      "control_switch_entity": null,
+      "invert_setpoint": false,
+      "setpoint_feedback_entity": null,
+      "dc_to_bat_efficiency": 1.0,
+      "bat_to_dc_efficiency": 1.0,
+      "minimum_power_kw": 0.0,
+      "reduce_power_low_soc": [],
+      "reduce_power_high_soc": [],
+      "min_soc_end_pct": null,
+      "max_soc_end_pct": 100.0,
+      "charge_stages": [],
+      "discharge_stages": []
+    }
+  ],
+  "electric_vehicles": [],
+  "machines": [],
+  "boiler": null,
+  "heat_pump": null,
+  "scheduler": {
+    "enabled": true,
+    "entries": []
+  },
+  "storage": {
+    "data_dir": "/data",
+    "retention_days": 30
+  }
+}

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Settings — Day Ahead Energy Optimizer</title>
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="top">
+    <div class="brand">Day Ahead Energy Optimizer<small>Settings</small></div>
+    <nav class="main">
+        <a href="/">Plan</a>
+        <a href="/setup">Guided setup</a>
+        <a class="active" href="/settings">Settings</a>
+    </nav>
+    <div class="toolbar">
+        <input id="token" type="password" autocomplete="off" placeholder="API token">
+        <button class="secondary" id="save-token" type="button">Use token</button>
+    </div>
+</header>
+
+<main class="wrap">
+    <div class="hero">
+        <div>
+            <h1>Settings</h1>
+            <p>Every field is generated from the same schema the engine validates. Hover the help text for details.</p>
+        </div>
+        <div class="toolbar">
+            <button id="save" type="button">Save</button>
+            <button id="validate" class="secondary" type="button">Validate</button>
+            <button id="reload" class="ghost" type="button">Reload</button>
+        </div>
+    </div>
+
+    <div id="status" class="alert info hidden"></div>
+
+    <div class="card">
+        <div class="row">
+            <button id="export" class="ghost" type="button">Export JSON</button>
+            <button id="import-button" class="secondary" type="button">Import JSON</button>
+            <input id="import" type="file" accept="application/json,.json" class="hidden">
+            <button id="recalculate-load" class="secondary" type="button">Recalculate load profile</button>
+            <button id="reset" class="danger" type="button">Reset to demo</button>
+            <div class="spacer"></div>
+            <span class="pill" id="source-summary"></span>
+        </div>
+    </div>
+
+    <div id="form"></div>
+
+    <section class="card">
+        <h2>Secrets</h2>
+        <p class="card-help">
+            API keys for ENTSO-E, Tibber, and Meteoserver. Secrets are write-only; the API never returns their values.
+            EnergyZero and Forecast.Solar do not need a key.
+        </p>
+        <div id="secrets-status" class="hint">Set an API token above to manage secrets.</div>
+        <div id="secrets" class="grid"></div>
+        <div class="row" style="margin-top: 12px;">
+            <button id="save-secrets" class="secondary" type="button">Save secrets</button>
+        </div>
+    </section>
+
+    <p class="foot">
+        This page writes the new engine configuration. The legacy 1.x add-on uses a different options file until the M4 cutover.
+    </p>
+</main>
+
+<script src="/static/settings.js"></script>
+</body>
+</html>

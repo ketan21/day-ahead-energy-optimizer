@@ -1,4 +1,4 @@
-# **刀 Day Ahead Optimizer**
+# **Day Ahead Optimizer**
 # Installatie en instellingen<br>
 
 ## Inhoudsopgave  

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Guided setup — Day Ahead Energy Optimizer</title>
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="top">
+    <div class="brand">Day Ahead Energy Optimizer<small>Guided setup</small></div>
+    <nav class="main">
+        <a href="/">Plan</a>
+        <a class="active" href="/setup">Guided setup</a>
+        <a href="/settings">Settings</a>
+    </nav>
+    <div class="toolbar">
+        <input id="token" type="password" autocomplete="off" placeholder="API token">
+        <button class="secondary" id="save-token" type="button">Use token</button>
+    </div>
+</header>
+
+<main class="wrap">
+    <div class="hero">
+        <div>
+            <h1>Set up your home</h1>
+            <p>Five short steps. You can change everything later in Settings.</p>
+        </div>
+        <a class="pill" href="/settings">Advanced settings</a>
+    </div>
+
+    <div class="steps" id="steps"></div>
+    <div id="status" class="alert info hidden"></div>
+    <div id="step"></div>
+
+    <div class="row" style="margin-top: 16px;">
+        <button class="ghost" id="back" type="button">Back</button>
+        <div class="spacer"></div>
+        <button id="next" type="button">Next</button>
+        <button id="finish" class="hidden" type="button">Save and see the plan</button>
+    </div>
+    <p class="foot">
+        The wizard edits the first solar array, battery, and EV. Use Settings for multiple devices or advanced
+        tariff fields.
+    </p>
+</main>
+
+<script src="/static/setup.js"></script>
+</body>
+</html>

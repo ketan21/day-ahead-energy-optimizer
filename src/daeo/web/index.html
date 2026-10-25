@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Day Ahead Energy Optimizer</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #f6f7f9;
+            --surface: #ffffff;
+            --text: #18202a;
+            --muted: #5d6b7a;
+            --line: #dde3ea;
+            --accent: #0b6bcb;
+            --accent-strong: #084f97;
+            --good: #1f7a4d;
+            --bad: #b42318;
+            --warn: #a15c00;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0f141a;
+                --surface: #161d26;
+                --text: #e8eef5;
+                --muted: #9fb0c0;
+                --line: #263241;
+                --accent: #63a9ff;
+                --accent-strong: #8bc0ff;
+                --good: #5dd39e;
+                --bad: #ff8a80;
+                --warn: #ffc46b;
+            }
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 20px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--line);
+        }
+        h1 { font-size: 18px; margin: 0; letter-spacing: .2px; }
+        h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 20px; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .nav-links { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 14px; }
+        .nav-links a { color: var(--muted); text-decoration: none; font-weight: 600; }
+        .nav-links a:hover { color: var(--accent); }
+        .nav-links a.active { color: var(--accent); }
+        input[type="password"] {
+            min-width: 220px;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text);
+        }
+        button {
+            border: 0;
+            border-radius: 8px;
+            padding: 9px 16px;
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:hover { background: var(--accent-strong); }
+        button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+        button:disabled { opacity: .55; cursor: not-allowed; }
+        .status {
+            margin: 14px 0;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            color: var(--muted);
+        }
+        .status.error { color: var(--bad); border-color: var(--bad); }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+        .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+        .card .value { font-size: 22px; font-weight: 650; margin-top: 4px; }
+        .card .value.good { color: var(--good); }
+        .card .value.bad { color: var(--bad); }
+        .meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
+        .table-wrap {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            overflow: auto;
+        }
+        table { width: 100%; border-collapse: collapse; min-width: 860px; }
+        th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+        th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+        td:first-child, th:first-child { text-align: left; }
+        tbody tr:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+        .badge {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--accent) 14%, transparent);
+            color: var(--accent);
+            font-size: 12px;
+        }
+        .badge.idle { background: transparent; color: var(--muted); }
+        .charge { color: var(--good); }
+        .discharge { color: var(--warn); }
+        .foot { color: var(--muted); font-size: 12px; margin-top: 14px; }
+        @media (max-width: 600px) {
+            .wrap { padding: 14px; }
+            header { padding: 14px; }
+            input[type="password"] { min-width: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div>
+        <h1>Day Ahead Energy Optimizer</h1>
+        <div class="meta" id="version">loading…</div>
+    </div>
+    <nav class="nav-links">
+        <a class="active" href="/">Plan</a>
+        <a href="/setup">Guided setup</a>
+        <a href="/settings">Settings</a>
+    </nav>
+    <div class="toolbar">
+        <input id="token" type="password" autocomplete="off" placeholder="API token">
+        <button class="secondary" id="save-token" type="button">Save token</button>
+        <button id="run" type="button">Run optimization</button>
+    </div>
+</header>
+
+<main class="wrap">
+    <div class="status" id="status">Loading plan…</div>
+
+    <div class="cards" id="cards" hidden>
+        <div class="card"><div class="label">Plan cost</div><div class="value" id="cost">–</div></div>
+        <div class="card"><div class="label">Expected savings</div><div class="value" id="savings">–</div></div>
+        <div class="card"><div class="label">PV forecast</div><div class="value" id="pv">–</div></div>
+        <div class="card"><div class="label">Grid import</div><div class="value" id="import">–</div></div>
+        <div class="card"><div class="label">Grid export</div><div class="value" id="export">–</div></div>
+        <div class="card"><div class="label">Battery cycles</div><div class="value" id="cycles">–</div></div>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>Time</th>
+                <th>Price</th>
+                <th>Load</th>
+                <th>PV</th>
+                <th>Flex</th>
+                <th>Battery</th>
+                <th>SOC</th>
+                <th>Grid</th>
+                <th>Cost</th>
+                <th>Reason</th>
+            </tr>
+            </thead>
+            <tbody id="rows">
+            <tr><td colspan="10">No plan yet.</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p class="foot" id="foot"></p>
+</main>
+
+<script>
+(() => {
+    const TOKEN_KEY = "daeo_api_token";
+    const $ = (id) => document.getElementById(id);
+    const fmtMoney = new Intl.NumberFormat("en-GB", {style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const fmtNumber = new Intl.NumberFormat("en-GB", {maximumFractionDigits: 2});
+    const fmtPrice = new Intl.NumberFormat("en-GB", {minimumFractionDigits: 3, maximumFractionDigits: 3});
+
+    const tokenInput = $("token");
+    tokenInput.value = localStorage.getItem(TOKEN_KEY) || "";
+
+    $("save-token").addEventListener("click", () => {
+        localStorage.setItem(TOKEN_KEY, tokenInput.value.trim());
+        setStatus("Token saved. Reloading…");
+        load();
+    });
+
+    function headers() {
+        const headers = {"Accept": "application/json"};
+        const token = tokenInput.value.trim();
+        if (token) headers.Authorization = `Bearer ${token}`;
+        return headers;
+    }
+
+    function setStatus(message, isError = false) {
+        const el = $("status");
+        el.textContent = message;
+        el.classList.toggle("error", isError);
+        el.hidden = false;
+    }
+
+    async function api(path, options = {}) {
+        const response = await fetch(path, {...options, headers: {...headers(), ...(options.headers || {})}});
+        const text = await response.text();
+        let body = null;
+        try { body = text ? JSON.parse(text) : null; } catch (_) { body = {raw: text}; }
+        if (!response.ok) {
+            const message = body?.error?.message || body?.detail || `Request failed (${response.status})`;
+            throw new Error(message);
+        }
+        return body;
+    }
+
+    function formatTime(iso) {
+        const date = new Date(iso);
+        return date.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+    }
+
+    function formatReason(reason) {
+        return String(reason || "idle").replaceAll("_", " ");
+    }
+
+    function render(plan) {
+        $("cards").hidden = false;
+        const summary = plan.summary;
+        $("cost").textContent = fmtMoney.format(summary.cost_eur);
+        $("savings").textContent = fmtMoney.format(summary.savings_eur);
+        $("savings").className = "value " + (summary.savings_eur >= 0 ? "good" : "bad");
+        $("savings").title = Math.abs(summary.terminal_soc_value_eur) > 0.005
+            ? `Adjusts for the value of energy left in (or taken from) the battery at the end of the plan: ${fmtMoney.format(summary.terminal_soc_value_eur)}.`
+            : "";
+        $("pv").textContent = `${fmtNumber.format(summary.pv_kwh)} kWh`;
+        $("import").textContent = `${fmtNumber.format(summary.import_kwh)} kWh`;
+        $("export").textContent = `${fmtNumber.format(summary.export_kwh)} kWh`;
+        $("cycles").textContent = fmtNumber.format(summary.battery_cycles);
+
+        const rows = $("rows");
+        rows.replaceChildren();
+        for (const interval of plan.intervals) {
+            const tr = document.createElement("tr");
+
+            const time = document.createElement("td");
+            time.textContent = formatTime(interval.start);
+            tr.appendChild(time);
+
+            const price = document.createElement("td");
+            price.textContent = `${fmtPrice.format(interval.price_import_eur_kwh)} €/kWh`;
+            tr.appendChild(price);
+
+            const load = document.createElement("td");
+            load.textContent = fmtNumber.format(interval.load_kwh);
+            tr.appendChild(load);
+
+            const pv = document.createElement("td");
+            pv.textContent = fmtNumber.format(interval.pv_kwh);
+            tr.appendChild(pv);
+
+            const flex = (interval.ev_kwh || 0)
+                + (interval.boiler_kwh || 0)
+                + (interval.heat_pump_kwh || 0)
+                + (interval.machine_kwh || 0);
+            const flexCell = document.createElement("td");
+            flexCell.textContent = fmtNumber.format(flex);
+            flexCell.title =
+                `EV ${fmtNumber.format(interval.ev_kwh || 0)} kWh · ` +
+                `boiler ${fmtNumber.format(interval.boiler_kwh || 0)} kWh · ` +
+                `heat ${fmtNumber.format(interval.heat_pump_kwh || 0)} kWh · ` +
+                `machine ${fmtNumber.format(interval.machine_kwh || 0)} kWh`;
+            tr.appendChild(flexCell);
+
+            const battery = document.createElement("td");
+            if (interval.battery_charge_kwh > 0) {
+                battery.textContent = `+${fmtNumber.format(interval.battery_charge_kwh)}`;
+                battery.className = "charge";
+            } else if (interval.battery_discharge_kwh > 0) {
+                battery.textContent = `−${fmtNumber.format(interval.battery_discharge_kwh)}`;
+                battery.className = "discharge";
+            } else {
+                battery.textContent = "0";
+            }
+            tr.appendChild(battery);
+
+            const soc = document.createElement("td");
+            soc.textContent = `${fmtNumber.format(interval.soc_pct)}%`;
+            tr.appendChild(soc);
+
+            const grid = document.createElement("td");
+            if (interval.grid_import_kwh > 0) {
+                grid.textContent = `↓ ${fmtNumber.format(interval.grid_import_kwh)}`;
+            } else if (interval.grid_export_kwh > 0) {
+                grid.textContent = `↑ ${fmtNumber.format(interval.grid_export_kwh)}`;
+            } else {
+                grid.textContent = "0";
+            }
+            tr.appendChild(grid);
+
+            const cost = document.createElement("td");
+            cost.textContent = fmtMoney.format(interval.cost_eur);
+            tr.appendChild(cost);
+
+            const reason = document.createElement("td");
+            const badge = document.createElement("span");
+            const isIdle = interval.reason === "idle";
+            badge.className = "badge" + (isIdle ? " idle" : "");
+            badge.textContent = formatReason(interval.reason);
+            if (interval.explanation) badge.title = interval.explanation;
+            reason.appendChild(badge);
+            tr.appendChild(reason);
+
+            rows.appendChild(tr);
+        }
+
+        const start = new Date(plan.horizon_start).toLocaleString();
+        const end = new Date(plan.horizon_end).toLocaleString();
+        const terminal = Math.abs(summary.terminal_soc_value_eur) > 0.005
+            ? ` · terminal SOC value ${fmtMoney.format(summary.terminal_soc_value_eur)}`
+            : "";
+        const sources = Object.entries(plan.sources || {})
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(" · ");
+        $("foot").textContent =
+            `Plan ${plan.id} · ${plan.interval_minutes} min · ${start} → ${end} · ` +
+            `solver ${plan.solver.name} (${plan.solver.status}, ${plan.solver.runtime_ms} ms) · ` +
+            `config ${plan.config_hash.slice(0, 10)}${terminal}` +
+            (sources ? ` · ${sources}` : "");
+        setStatus(`Plan loaded: ${plan.intervals.length} intervals.`);
+    }
+
+    async function load() {
+        try {
+            const health = await api("/api/v1/health");
+            $("version").textContent = `v${health.version}${health.demo ? " · demo engine" : ""}`;
+            try {
+                const plan = await api("/api/v1/plan/latest");
+                render(plan);
+            } catch (error) {
+                $("cards").hidden = true;
+                setStatus(`No plan loaded: ${error.message}`, true);
+            }
+        } catch (error) {
+            setStatus(`Cannot reach the engine: ${error.message}`, true);
+        }
+    }
+
+    $("run").addEventListener("click", async () => {
+        const button = $("run");
+        button.disabled = true;
+        setStatus("Running optimization…");
+        try {
+            const result = await api("/api/v1/optimize", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({dry_run: false}),
+            });
+            render(result.plan);
+        } catch (error) {
+            setStatus(`Optimization failed: ${error.message}`, true);
+        } finally {
+            button.disabled = false;
+        }
+    });
+
+    load();
+})();
+</script>
+</body>
+</html>

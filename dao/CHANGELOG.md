@@ -1,4 +1,4 @@
-# Changelog 刀 DAO
+# Changelog - Day Ahead Optimizer
 # Day Ahead Optimizer
 # 2026.9.1
 - removed us of pipe, let the child inherit the scheduler's stdout/stderr: (#812)

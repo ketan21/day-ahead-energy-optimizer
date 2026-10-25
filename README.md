@@ -1,96 +1,165 @@
-# DAY AHEAD OPTIMIZER
+# Day Ahead Energy Optimizer
 
-![Supports aarch64 Architecture][aarch64-shield] ![Supports amd64 Architecture][amd64-shield]
+Plan battery, boiler, heat-pump, EV, and appliance use against dynamic day-ahead
+electricity prices. Built for Home Assistant, with the Netherlands and Belgium as the
+first markets.
 
-[aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg
-[amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg
+> **Status: rebuild in progress.** The production add-on is still the legacy
+> implementation in [`dao/`](dao/). The new engine lives in [`src/daeo/`](src/daeo/)
+> and ships a schema-driven settings UI, a guided setup wizard, live EnergyZero
+> prices, a live Forecast.Solar PV forecast, real month/hour load profiles from the
+> HA recorder, a CBC MILP solver, a browser plan viewer, and a Home Assistant
+> integration with opt-in, verified battery control. Device support is generic:
+> signed or unsigned power setpoints, direction/mode selects, and operating-mode
+> preconditions. See the [rebuild proposal](docs/rebuild-proposal.md).
 
-## Inleiding
-Het programma Day Ahead Optimizer (DAO) voert de volgende acties, 
-berekeningen en bewerkingen uit: 
+## What it does
 
-* ophalen dynamische energie tarieven bij Entsoe en/of NordPool
-* ophalen van meteogegevens bij Meteoserver
-* berekenen van de optimale inzet van een aanwezige batterij, wp-boiler en elektrische auto.<br>
+- Fetches EnergyZero all-in consumer prices (live), with ENTSO-E, Nordpool, Tibber,
+  and existing HA price sensors on the M2 roadmap.
+- Forecasts PV with Forecast.Solar (live, location-aware) or a synthetic demo curve.
+- Builds real month/hour load profiles from the Home Assistant recorder statistics
+  (P1 import/export, PV, battery, and optional device meters).
+- Optimizes battery charging, boiler heating, heat-pump stages, EV charging, and
+  appliance windows for the next 24 hours.
+- Explains every interval: price, PV, load, battery, grid, cost, and the reason for
+  the decision.
+- Publishes a plan that the UI, the API, and the Home Assistant integration consume.
+- Applies the current battery interval through an explicit arming switch, with
+  read-back verification, SOC guards, fallback, and an audit trail.
 
-Het programma draait alleen als addon op HA-installaties met een arm64 processor (bijv Raspberry Pi4) of 
-een intel 64 bit processor (amd64). Maar het kan ook separate Docker-container worden geinstalleerd
+## Quick start: standalone demo
 
----
-## Documentatie 
-In de loop van 2025 is begonnen met het verhuizen en actualiseren van de documentie vanaf DOCS.md
-naar de wiki-pagina's op github: https://github.com/corneel27/day-ahead/wiki
----
+The standalone container is for exploration, development, and debugging. It uses a
+sample NL configuration and a synthetic price/solar/load profile, so it runs without
+Home Assistant or API keys.
 
-## Installatie
-Deze is uitgebreid beschreven in de wiki: https://github.com/corneel27/day-ahead/wiki/2.-Installatie-en-basis-configuratie
+### Docker
 
+```bash
+docker compose up --build
+```
 
+Open <http://localhost:8099>.
 
----
-## Optimization
-De optimalisering van het verbruik gebeurt met behulp van een generiek wiskundig algoritme
-met de naam "Mixed-Integer lineair Programming". Meer daarover kun je lezen op de 
-website die ook het algoritme en allerlei bijbehorende hulpmiddelen aanbiedt:
-https://python-mip.com/
+### Local Python
 
-Deze implementatie berekent een optimale inzet van je batterij, boiler en e.v., waarbij naar keuze wordt 
-gestreefd naar minimalisering van je kosten, naar minimalisering van je inkoop (nul op de meter) of 
-een combinatie van beide. Daarvoor worden de volgende zaken berekend:
-* uit de prognose van het weer (globale straling) per uur wordt een voorspelling berekend van de productie van je 
-zonnepanelen
-* met de tarieven van je dynamische leverancier (incl. opslag, belastingen en btw) worden per uur de kosten 
-en opbrengsten van het verbruik c.q. teruglevering berekend
-* m.b.v. de karakteristieken van je accu worden per uur het laad- c.q. ontlaadvermogen berekend
-* wanneer moet je elektrische auto worden geladen
+Requires Python 3.12 or newer.
 
-Dit resulteert (in de mip-module) in enkele honderden vergelijkingen en idem dito variabelen(onbekenden). 
-Aan de hand van de gekozen strategie kan met behulp van het algoritme de meest optimale setting van al deze 
-variabelen worden berekend. Dit zijn:
-* per uur verbruik en kosten op de inkoopmeter
-* per uur teruglevering en opbrengst op de inkoopmeter
-* per uur laad- c.q. ontlaadvermogen van de batterij en de SoC aan het einde van het uur
-* tijdstip waarop de boiler moet worden opgewarmd
-* uurvakken waarin de elektrische auto moet worden geladen
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+python -m daeo
+```
 
-Het geheel kan grafisch worden weergegeven:
+Open <http://localhost:8099>. Use **Guided setup** for a quick configuration or
+**Settings** for every field. The engine stores its SQLite database, generated API
+token, and optional secrets in `.daeo-data/`.
 
-![optimalisering](dao/images/optimum2300.png "optimalisering")
+### API
 
-Of in tabelvorm:
-````
-         uur  accu_in  accu_out     soc  con_l  c_t_t  c_t_n  bas_l   boil     wp     ev     pv  kos_l  kos_t  k_t_n   b_tem
-0      23.00     0.00      0.00   20.00   0.55   0.00   0.00   0.55   0.00  -0.00   0.00   0.00   0.15  -0.00  -0.00   37.50
-1       0.00     0.00      0.00   20.00   0.68   0.00   0.00   0.68   0.00  -0.00   0.00   0.00   0.17  -0.00  -0.00   37.10
-2       1.00     0.00      0.00   20.00   1.93   0.00   0.00   1.03   0.90  -0.00   0.00   0.00   0.49  -0.00  -0.00   48.36
-3       2.00     0.00      0.00   20.00   1.18   0.00   0.00   1.18   0.00  -0.00   0.00   0.00   0.29  -0.00  -0.00   47.96
-4       3.00     0.22      0.00   20.71   1.76   0.00   0.00   0.65   0.00   0.23   0.66   0.00   0.41  -0.00  -0.00   47.56
-5       4.00     4.50      0.00   35.02   7.64   0.00   0.00   0.54   0.00   0.30   2.30   0.00   1.63  -0.00  -0.00   47.16
-6       5.00     0.00      0.00   35.02   0.63   0.00   0.00   0.63   0.00  -0.00   0.00   0.00   0.15  -0.00  -0.00   46.76
-7       6.00     0.00      0.00   35.02   0.70   0.00   0.00   0.70   0.00   0.00   0.00   0.00   0.19  -0.00  -0.00   46.36
-8       7.00     0.00      0.00   35.02   0.64   0.00   0.00   0.65   0.00  -0.00   0.00   0.01   0.18  -0.00  -0.00   45.96
-9       8.00     0.00      0.00   35.02   0.11   0.00   0.00   0.34   0.00  -0.00   0.00   0.23   0.03  -0.00  -0.00   45.56
-10      9.00     0.00      0.00   35.02   0.00   1.28   0.00   0.31   0.00  -0.00   0.00   1.59   0.00  -0.34  -0.00   45.16
-11     10.00     4.50      0.00   49.32   2.46   0.00   0.00   0.16   0.00   0.23   0.00   2.42   0.55  -0.00  -0.00   44.76
-12     11.00     4.50      0.00   63.62   2.37   0.00   0.00   0.38   0.00   0.30   0.00   2.81   0.51  -0.00  -0.00   44.36
-13     12.00     4.50      0.00   77.93   2.91   0.00   0.00   0.69   0.00   0.30   0.00   2.58   0.63  -0.00  -0.00   43.96
-14     13.00     4.50      0.00   92.23   3.80   0.00   0.00   0.59   0.00   0.30   0.00   1.59   0.83  -0.00  -0.00   43.56
-15     14.00     0.00      0.00   92.23   0.21   0.00   0.00   1.13   0.00   0.23   0.00   1.14   0.05  -0.00  -0.00   43.16
-16     15.00     0.00      0.00   92.23   0.00   0.97   0.00   0.93   0.00  -0.00   0.00   1.90   0.00  -0.23  -0.00   42.76
-17     16.00     0.00      0.00   92.23   0.00   0.46   0.00   0.53   0.00  -0.00   0.00   0.99   0.00  -0.13  -0.00   42.36
-18     17.00     0.00      4.50   74.17   0.00   4.21   0.00   1.02   0.00  -0.00   0.00   0.73   0.00  -1.34  -0.00   41.96
-19     18.00     0.00      4.50   56.12   0.00   5.26   0.00   0.51   0.00  -0.00   0.00   1.27   0.00  -1.79  -0.00   41.56
-20     19.00     0.00      4.50   38.06   0.00   3.92   0.00   0.62   0.00  -0.00   0.00   0.04   0.00  -1.37  -0.00   41.16
-21     20.00     0.00      4.50   20.00   0.00   3.88   0.00   0.62   0.00  -0.00   0.00   0.00   0.00  -1.25  -0.00   40.76
-22     21.00     0.00      0.00   20.00   0.62   0.00   0.00   0.62   0.00  -0.00   0.00   0.00   0.18  -0.00  -0.00   40.36
-23     22.00     0.00      0.00   20.00   0.55   0.00   0.00   0.55   0.00  -0.00   0.00   0.00   0.15  -0.00  -0.00   39.96
-24     23.00     0.00      0.00   20.00   0.55   0.00   0.00   0.55   0.00  -0.00   0.00   0.00   0.15  -0.00  -0.00   39.56
-````
-Heb je wensen, opmerkingen, suggesties, commentaar of kritiek: alles is welkom op de github pagina 
-van deze addon. Bij het onderdeel issues:<br>
-https://github.com/corneel27/day-ahead/issues <br>
-of bij de discussions:<br>
-https://github.com/corneel27/day-ahead/discussions <br>
-Voordat je een issue invult of een discusie begint: doorzoek de geschiedenis, misschien is het probleem al 
-eerder aangekaart.<br>
-Of nog beter: Plaats een pull request met een oplossing of een nieuwe feature!
+```bash
+curl http://localhost:8099/api/v1/health
+curl http://localhost:8099/api/v1/plan/latest
+curl http://localhost:8099/api/v1/config/schema
+```
+
+In demo mode, local mutations are open. Set `DAEO_DEMO=0` (and optionally
+`DAEO_API_TOKEN`) to require a bearer token. The generated token is written to
+`.daeo-data/api_token` with owner-only permissions.
+
+## Deployment
+
+The engine add-on image is built and published by
+`.github/workflows/daeo-image.yml` to `ghcr.io/ketan21/daeo` for amd64 and arm64.
+The add-on `version` and the published tag must match. See
+[`addon/README.md`](addon/README.md) for publishing and pairing.
+
+## Home Assistant integration
+
+A HACS-compatible integration scaffold lives in
+[`custom_components/daeo`](custom_components/daeo/). It provides a config flow,
+sensors, binary sensors, an EV charging calendar, a run button, a strategy select,
+services (`daeo.optimize`, `daeo.set_strategy`, `daeo.export_plan`), and diagnostics.
+
+The integration has a config flow, entities, services, and an opt-in battery
+control loop. It is tested with the Home Assistant 2025.1 harness; device-specific
+drivers and Enphase battery control are still generic. See the
+[integration README](custom_components/daeo/README.md).
+
+## Configuration status
+
+The new engine configuration (`prices.source`, `forecast.solar_source`, device
+entities, strategy, and so on) is the configuration that will become the add-on
+configuration at the M4 cutover. The legacy 1.x add-on in `dao/` still uses its own
+`options.json` and does not read these fields yet.
+
+The CBC adapter optimises batteries, EVs, boiler, heat pump, machines, grid limits,
+and PV curtailment. Battery charge/discharge stage curves, battery AC/DC
+efficiencies, reduced-power SOC limits, minimum power, and terminal SOC targets are
+ported. PV array DC coupling, EV charge stages, and heat-curve dynamics from the
+legacy model are not ported yet.
+
+## Repository layout
+
+```
+src/daeo/                 new engine (Python package)
+  domain/                 Plan, Interval, OptimizationInput, enums
+  config/                 strict Pydantic schema, loader, secrets
+  solver/                 Solver protocol, CBC MILP solver, demo fallback
+  providers/              EnergyZero prices, Forecast.Solar PV (ENTSO-E etc. follow)
+  storage/                SQLite persistence
+  api/                    FastAPI app, auth, error contract
+  web/                    dependency-free plan viewer
+tests/daeo/               unit, contract, API, solver, integration metadata tests
+custom_components/daeo/   Home Assistant integration scaffold (HACS)
+hacs.json                 HACS metadata
+docs/rebuild-proposal.md  architecture, API, HA integration, milestones
+addon/                    experimental new add-on scaffold
+dao/                      legacy 1.x implementation (frozen)
+```
+
+## Development
+
+```bash
+pytest tests/daeo
+ruff check src/daeo tests/daeo custom_components/daeo
+```
+
+The Home Assistant integration also has a test harness:
+
+```bash
+python3.12 -m venv .venv-ha
+.venv-ha/bin/pip install -r tests/ha/requirements.txt
+PYTHONPATH=. .venv-ha/bin/pytest tests/ha -q --asyncio-mode=auto
+```
+
+The legacy test suite and scenario corpus remain in `dao/tests/` and `tests/`.
+They are not touched by the rebuild until the solver adapter lands.
+
+## Language
+
+The project is English-only: UI, documentation, metadata, logs, and code. Please do
+not add Dutch product strings or documentation.
+
+## Documentation
+
+- [Project status and handoff](docs/status.md) — current state, live demo
+  configuration, commands, and remaining work.
+- [Configure the demo](docs/demo-configuration.md) — adapt the demo to your battery,
+  solar, EV, boiler, and tariff via the config UI or API.
+- [Anker Modbus control](docs/anker-modbus.md) — mapping the official Anker Solix
+  integration and Anker X1 community integration to DAEO's battery control loop.
+- [Load profiles from the HA recorder](docs/load-profile.md) — P1/PV/battery sensor
+  mapping, month/hour aggregation, and recalculation.
+- [Anker Solarbank Max AC example](docs/examples/anker-solarbank-max-ac.json) —
+  import-ready battery, load-profile, and price configuration.
+- [Rebuild proposal](docs/rebuild-proposal.md) — decisions, architecture, API,
+  Home Assistant integration, milestones.
+- Legacy documentation: [`dao/DOCS.md`](dao/DOCS.md) (Dutch, archived during the
+  rebuild), [`DEVELOP.md`](DEVELOP.md), [`SETTINGS.md`](SETTINGS.md).
+
+## License
+
+Apache License 2.0. See [LICENSE.txt](LICENSE.txt).

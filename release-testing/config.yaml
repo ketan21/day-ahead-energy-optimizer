@@ -1,9 +1,9 @@
 ---
-name: 刀 Day Ahead Optimizer (TESTING)
+name: Day Ahead Optimizer (TESTING)
 version: 2026.10.0.rc2
 stage: experimental
 slug: day_ahead_opt-testing
-description: Beta version of DAO. Use only for testing!
+description: Beta channel of Day Ahead Optimizer. Use only for testing.
 url: https://github.com/corneel27/day-ahead/
 arch:
   - aarch64
@@ -11,18 +11,14 @@ arch:
 init: false
 ingress: true
 ingress_port: 5000
-panel_admin: false
+panel_admin: true
 panel_icon: mdi:home-battery-outline
 apparmor: true
 legacy: true
 map:
-  - ssl:rw
   - addon_config:rw
-  - homeassistant_config:rw
-  - share:rw
+  - homeassistant_config:ro
 homeassistant_api: true
-ports:
-  5000/tcp: 5000
 options:
   use_self_compiled_miplib: false
 schema:

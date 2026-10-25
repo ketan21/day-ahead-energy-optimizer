@@ -1,8 +1,8 @@
 ---
-name: 刀 Day Ahead Optimizer
+name: Day Ahead Optimizer
 version: 2026.9.1
 slug: day_ahead_opt
-description: Home Assistant Community Add-ons for day ahead optimizations
+description: Optimize battery, boiler, heat pump and EV charging against dynamic energy prices.
 url: https://github.com/corneel27/day-ahead
 arch:
   - aarch64
@@ -10,18 +10,14 @@ arch:
 init: false
 ingress: true
 ingress_port: 5000
-panel_admin: false
+panel_admin: true
 panel_icon: mdi:home-battery-outline
 apparmor: true
 legacy: true
 map:
-  - ssl:rw
   - addon_config:rw
-  - homeassistant_config:rw
-  - share:rw
+  - homeassistant_config:ro
 homeassistant_api: true
-ports:
-  5000/tcp: 5000
 options:
   use_self_compiled_miplib: false
 schema:
