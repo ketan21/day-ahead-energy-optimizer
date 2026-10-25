@@ -26,6 +26,23 @@ remains in [`dao/CHANGELOG.md`](dao/CHANGELOG.md) until the M4 cutover.
 - `docker-compose.yml`: standalone demo.
 - `pyproject.toml` and a dedicated CI workflow.
 
+### Fixed — 2.1.4
+
+- Every integration optimize path now sends the live battery SOC. The controller
+  refresh already did; the Run optimization button and `daeo.optimize` service did
+  not, so they could replace a live-SOC plan with one based on the default 50%
+  initial SOC.
+- The engine remembers the last live SOC and reuses it for UI, config-save, and
+  load-profile re-solves that do not supply a SOC.
+- The controller refuses to arm when a configured SOC entity is unavailable, and
+  refreshes the plan when the actual SOC diverges from the plan trajectory by more
+  than 5%.
+- Added live P1 zero-grid correction. When the plan targets zero grid import/export
+  and the battery is covering load or absorbing PV, the controller adjusts the
+  setpoint against the live net-meter power. The correction is bounded by the
+  battery limits, SOC guard, deadband, and maximum step; planned grid-charge/export
+  intervals are left alone. Configure it under Grid → Realtime grid control.
+
 ### Fixed — 2.1.3
 
 - Added the missing **Load profile** card to Settings. The `load` config section

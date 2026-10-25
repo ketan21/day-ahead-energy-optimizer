@@ -155,6 +155,8 @@ not add Dutch product strings or documentation.
   mapping, month/hour aggregation, and recalculation.
 - [Anker Solarbank Max AC example](docs/examples/anker-solarbank-max-ac.json) —
   import-ready battery, load-profile, and price configuration.
+- [Live P1 zero-grid correction](docs/zero-grid.md) — correcting the battery
+  setpoint against the real meter during load-covering intervals.
 - [Troubleshooting](docs/troubleshooting.md) — 404/token/ingress issues and the
   difference between the legacy add-on, the new engine add-on, and the HACS
   integration.

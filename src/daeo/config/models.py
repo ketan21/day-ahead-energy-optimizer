@@ -897,6 +897,51 @@ class GridConfig(DaeoModel):
         gt=0,
         json_schema_extra={"x-ui-group": "Devices", "x-ui-section": "Grid", "x-unit": "kW"},
     )
+    power_sensor_entity: EntityId | None = Field(
+        default=None,
+        description="Net grid power sensor in W. Positive means import, negative means export.",
+        json_schema_extra={
+            "x-ui-group": "Devices",
+            "x-ui-section": "Realtime grid control",
+            "x-ui-widget-filter": "sensor",
+            "x-unit": "W",
+            "x-help": "Optional P1/net-meter power sensor. When set, DAEO corrects "
+            "the battery setpoint against the live meter in plan intervals that "
+            "target zero grid import/export.",
+        },
+    )
+    power_sensor_invert: bool = Field(
+        default=False,
+        json_schema_extra={
+            "x-ui-group": "Devices",
+            "x-ui-section": "Realtime grid control",
+            "x-help": "Enable when the power sensor reports export as positive and "
+            "import as negative.",
+        },
+    )
+    zero_grid_deadband_w: float = Field(
+        default=30.0,
+        ge=0,
+        le=500,
+        json_schema_extra={
+            "x-ui-group": "Devices",
+            "x-ui-section": "Realtime grid control",
+            "x-unit": "W",
+            "x-help": "Ignore meter errors inside this band to avoid setpoint hunting.",
+        },
+    )
+    zero_grid_max_step_w: float = Field(
+        default=1000.0,
+        ge=0,
+        le=5000,
+        json_schema_extra={
+            "x-ui-group": "Devices",
+            "x-ui-section": "Realtime grid control",
+            "x-unit": "W",
+            "x-help": "Maximum battery setpoint change per control tick. Zero disables "
+            "the ramp limit.",
+        },
+    )
 
 
 class StrategyConfig(DaeoModel):

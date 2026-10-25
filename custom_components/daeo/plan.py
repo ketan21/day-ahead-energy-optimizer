@@ -38,6 +38,50 @@ def battery_action(interval: dict[str, Any] | None) -> str:
     return "idle"
 
 
+def plan_expected_soc(
+    plan: dict[str, Any] | None,
+    battery: dict[str, Any] | None,
+    now: datetime,
+) -> float | None:
+    """Estimate the plan's SOC at ``now`` for mismatch detection.
+
+    The plan stores the SOC at the end of each interval. The first interval's
+    initial SOC is reconstructed from its AC charge/discharge and the battery
+    efficiency, then the current interval is interpolated linearly.
+    """
+    if not plan or not battery:
+        return None
+    intervals = plan.get("intervals") or []
+    capacity = float(battery.get("capacity_kwh") or 0)
+    if not intervals or capacity <= 0:
+        return None
+    efficiency = float(battery.get("efficiency", 1.0))
+    charge_eff = efficiency * float(battery.get("dc_to_bat_efficiency", 1.0))
+    discharge_eff = efficiency * float(battery.get("bat_to_dc_efficiency", 1.0))
+    if charge_eff <= 0 or discharge_eff <= 0:
+        return None
+    first = intervals[0]
+    initial = float(first.get("soc_pct", 0.0)) - (
+        float(first.get("battery_charge_kwh", 0.0)) * charge_eff
+        - float(first.get("battery_discharge_kwh", 0.0)) / discharge_eff
+    ) / capacity * 100
+    for index, interval in enumerate(intervals):
+        start = parse_datetime(interval["start"])
+        end = parse_datetime(interval["end"])
+        if not (start <= now < end):
+            continue
+        start_soc = (
+            initial
+            if index == 0
+            else float(intervals[index - 1].get("soc_pct", initial))
+        )
+        end_soc = float(interval.get("soc_pct", start_soc))
+        fraction = (now - start).total_seconds() / (end - start).total_seconds()
+        fraction = min(1.0, max(0.0, fraction))
+        return start_soc + (end_soc - start_soc) * fraction
+    return None
+
+
 def plan_age_seconds(plan: dict[str, Any] | None, now: datetime) -> float | None:
     """Age of the plan in seconds."""
     if not plan or not plan.get("created_at"):

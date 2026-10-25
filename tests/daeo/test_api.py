@@ -259,3 +259,20 @@ def test_forecast_solar_pv_is_used(tmp_path) -> None:
         assert plan["sources"]["pv"] == "forecast_solar"
         assert all(interval["pv_kwh"] == 0.5 for interval in plan["intervals"])
         assert plan["summary"]["pv_kwh"] == 48.0
+
+
+def test_optimize_reuses_last_battery_soc(client, auth_headers) -> None:
+    response = client.post(
+        "/api/v1/optimize",
+        headers=auth_headers,
+        json={"battery_soc_pct": 29},
+    )
+    assert response.status_code == 200
+    health = client.get("/api/v1/health").json()
+    assert health["last_battery_soc_pct"] == 29
+
+    # A UI-style optimize without an explicit SOC must not silently fall back to 50%.
+    response = client.post("/api/v1/optimize", headers=auth_headers, json={})
+    assert response.status_code == 200
+    health = client.get("/api/v1/health").json()
+    assert health["last_battery_soc_pct"] == 29

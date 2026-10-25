@@ -286,6 +286,7 @@ def create_app(
         app.state.pv_provider = pv_provider
         app.state.load_profile = load_profile
         app.state.plan = plan
+        app.state.last_battery_soc_pct = None
         yield
 
     app = FastAPI(
@@ -350,6 +351,9 @@ def create_app(
             "config_hash": app_state.config_hash,
             "load_profile_available": app_state.load_profile is not None,
             "load_source": app_state.config.load.source.value,
+            "last_battery_soc_pct": getattr(
+                app_state, "last_battery_soc_pct", None
+            ),
         }
 
     @app.get("/api/v1/meta", tags=["meta"])
@@ -429,6 +433,7 @@ def create_app(
             price_provider=request.app.state.price_provider,
             pv_provider=request.app.state.pv_provider,
             load_profile=load_profile,
+            battery_soc_pct=request.app.state.last_battery_soc_pct,
         )
         request.app.state.plan = plan
         response = {
@@ -484,6 +489,11 @@ def create_app(
         app_state = request.app.state
         store: SqliteStore = app_state.store
         run_id = store.start_run("optimize")
+        soc_pct = payload.battery_soc_pct if payload is not None else None
+        if soc_pct is not None:
+            app_state.last_battery_soc_pct = soc_pct
+        else:
+            soc_pct = app_state.last_battery_soc_pct
         try:
             plan = _solve(
                 store,
@@ -493,9 +503,7 @@ def create_app(
                 price_provider=app_state.price_provider,
                 pv_provider=app_state.pv_provider,
                 load_profile=app_state.load_profile,
-                battery_soc_pct=(
-                    payload.battery_soc_pct if payload is not None else None
-                ),
+                battery_soc_pct=soc_pct,
             )
         except (ProviderError, SolverError) as error:
             store.finish_run(run_id, RunStatus.FAILED, error=str(error))
@@ -598,6 +606,7 @@ def create_app(
             price_provider=app_state.price_provider,
             pv_provider=app_state.pv_provider,
             load_profile=profile,
+            battery_soc_pct=app_state.last_battery_soc_pct,
         )
         app_state.plan = plan
         return {"profile": profile.to_dict(), "plan_id": plan.id}

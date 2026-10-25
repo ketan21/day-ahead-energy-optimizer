@@ -5,6 +5,7 @@ from __future__ import annotations
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -26,8 +27,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up DAEO buttons."""
-    coordinator: DaeoCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities(DaeoButton(coordinator, description) for description in BUTTONS)
+    data = hass.data[DOMAIN][entry.entry_id]
+    coordinator: DaeoCoordinator = data["coordinator"]
+    controller = data["controller"]
+    async_add_entities(
+        DaeoButton(coordinator, controller, description) for description in BUTTONS
+    )
 
 
 class DaeoButton(DaeoEntity, ButtonEntity):
@@ -38,12 +43,17 @@ class DaeoButton(DaeoEntity, ButtonEntity):
     def __init__(
         self,
         coordinator: DaeoCoordinator,
+        controller,
         description: ButtonEntityDescription,
     ) -> None:
         super().__init__(coordinator, description.key, description.name)
+        self.controller = controller
         self.entity_description = description
 
     async def async_press(self) -> None:
         if self.entity_description.key == "run_optimization":
-            await self.coordinator.api.async_optimize()
+            if not await self.controller.async_optimize_live():
+                raise HomeAssistantError(
+                    self.controller.last_error or "Plan refresh with live SOC failed"
+                )
             await self.coordinator.async_request_refresh()

@@ -24,7 +24,7 @@ from .control import (
     setpoint_write_value,
 )
 from .coordinator import DaeoCoordinator
-from .plan import current_interval, plan_age_seconds
+from .plan import current_interval, plan_age_seconds, plan_expected_soc
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,6 +52,7 @@ class BatteryController:
         self._armed = False
         self._status = "disarmed"
         self._last_power_w: float | None = None
+        self._last_plan_power_w: float | None = None
         self._last_mode: str | None = None
         self._last_interval_start: datetime | None = None
         self._last_apply: datetime | None = None
@@ -118,6 +119,96 @@ class BatteryController:
             return None
         batteries = self.coordinator.data.config.get("batteries") or []
         return batteries[0] if batteries else None
+
+    def _live_soc_pct(self, battery: dict[str, Any] | None) -> float | None:
+        """Read the configured battery SOC; raise when configured but unavailable."""
+        if not battery:
+            return None
+        soc_entity = battery.get("soc_entity")
+        if not soc_entity:
+            return None
+        state = self.hass.states.get(soc_entity)
+        if state is None or state.state in ("unknown", "unavailable"):
+            raise ControlError(f"SOC entity {soc_entity} is unavailable")
+        try:
+            return float(state.state)
+        except ValueError as error:
+            raise ControlError(f"SOC entity {soc_entity} is not numeric") from error
+
+    def _zero_grid_adjustment(
+        self,
+        base_power_w: float,
+        interval: dict[str, Any] | None,
+        battery: dict[str, Any],
+    ) -> float | None:
+        """Return a corrected setpoint that drives the live meter to zero.
+
+        Only plan intervals that target zero grid import/export and have a
+        non-zero battery action are corrected. Grid-charge and export-arbitrage
+        intervals keep their planned setpoint.
+        """
+        if not interval:
+            return None
+        if abs(float(interval.get("grid_import_kwh", 0.0))) > 1e-6:
+            return None
+        if abs(float(interval.get("grid_export_kwh", 0.0))) > 1e-6:
+            return None
+        if (
+            float(interval.get("battery_charge_kwh", 0.0)) <= 1e-6
+            and float(interval.get("battery_discharge_kwh", 0.0)) <= 1e-6
+        ):
+            return None
+        config = self.coordinator.data.config if self.coordinator.data else {}
+        grid = config.get("grid") or {}
+        entity_id = grid.get("power_sensor_entity")
+        if not entity_id:
+            return None
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in ("unknown", "unavailable"):
+            return None
+        try:
+            grid_w = float(state.state)
+        except ValueError:
+            return None
+        if grid.get("power_sensor_invert"):
+            grid_w = -grid_w
+
+        deadband = float(grid.get("zero_grid_deadband_w", 30.0))
+        if abs(grid_w) <= deadband:
+            return None
+
+        max_charge_w = float(battery.get("max_charge_kw", 0.0)) * 1000
+        max_discharge_w = float(battery.get("max_discharge_kw", 0.0)) * 1000
+        adjusted = base_power_w - grid_w
+        adjusted = max(-max_discharge_w, min(max_charge_w, adjusted))
+
+        max_step = float(grid.get("zero_grid_max_step_w", 1000.0))
+        if max_step > 0 and self._last_power_w is not None:
+            delta = adjusted - self._last_power_w
+            delta = max(-max_step, min(max_step, delta))
+            adjusted = self._last_power_w + delta
+
+        minimum = float(battery.get("minimum_power_kw", 0.0)) * 1000
+        if abs(adjusted) < max(minimum, 1.0):
+            adjusted = 0.0
+        if self._last_power_w is not None and abs(adjusted - self._last_power_w) < deadband:
+            return None
+        return round(adjusted, 1)
+
+    def _plan_soc_mismatch(
+        self,
+        plan: dict[str, Any] | None,
+        battery: dict[str, Any] | None,
+        now: datetime,
+    ) -> bool:
+        """True when the actual SOC no longer matches the plan's SOC trajectory."""
+        if not plan or not battery or not battery.get("soc_entity"):
+            return False
+        actual = self._live_soc_pct(battery)
+        expected = plan_expected_soc(plan, battery, now)
+        if actual is None or expected is None:
+            return False
+        return abs(actual - expected) > 5.0
 
     def _audit_add(
         self,
@@ -187,6 +278,18 @@ class BatteryController:
             return
 
         now = dt_util.now()
+        try:
+            if self._plan_soc_mismatch(plan, battery, now):
+                self._force_refresh = True
+        except ControlError as error:
+            self._last_error = str(error)
+            self._status = "error"
+            _LOGGER.error("Battery SOC check failed: %s", error)
+            await self._fallback("soc_unavailable")
+            self._armed = False
+            self._notify()
+            return
+
         age = plan_age_seconds(plan, now)
         minutes = int((plan or {}).get("interval_minutes", 15))
         forced = self._force_refresh
@@ -204,7 +307,7 @@ class BatteryController:
             refreshed = await self._refresh(now)
             data = self.coordinator.data
             plan = data.plan if data else None
-            if forced and not refreshed:
+            if not refreshed:
                 await self._fallback("refresh_failed")
                 self._armed = False
                 self._notify()
@@ -217,12 +320,41 @@ class BatteryController:
             now,
             armed=self._armed,
             last_interval_start=self._last_interval_start,
-            last_power_w=self._last_power_w,
+            last_power_w=self._last_plan_power_w,
             max_age_seconds=max(2 * minutes * 60, 1800),
         )
 
+        interval = current_interval(plan, now)
+        adjusted = None
+        if decision.action in ("apply", "none"):
+            try:
+                adjusted = self._zero_grid_adjustment(
+                    decision.power_w, interval, battery
+                )
+            except ControlError as error:
+                self._last_error = str(error)
+                self._status = "error"
+                _LOGGER.error("Zero-grid correction failed: %s", error)
+                await self._fallback("grid_control_failed")
+                self._armed = False
+                self._notify()
+                return
+
         if decision.action == "apply":
-            await self._apply(decision, battery)
+            await self._apply(
+                decision,
+                battery,
+                power_w=adjusted if adjusted is not None else decision.power_w,
+                plan_power_w=decision.power_w,
+            )
+        elif decision.action == "none" and adjusted is not None:
+            await self._apply(
+                decision,
+                battery,
+                power_w=adjusted,
+                plan_power_w=decision.power_w,
+                record_plan=False,
+            )
         elif decision.action == "fallback":
             if (
                 not self._fallback_applied
@@ -241,15 +373,8 @@ class BatteryController:
             return True
         self._last_refresh = now
         battery = self._battery()
-        soc_pct = None
-        if battery and battery.get("soc_entity"):
-            state = self.hass.states.get(battery["soc_entity"])
-            if state is not None and state.state not in ("unknown", "unavailable"):
-                try:
-                    soc_pct = float(state.state)
-                except ValueError:
-                    soc_pct = None
         try:
+            soc_pct = self._live_soc_pct(battery)
             await self.coordinator.api.async_optimize(battery_soc_pct=soc_pct)
             await self.coordinator.async_request_refresh()
             self._last_error = None
@@ -296,7 +421,19 @@ class BatteryController:
         self,
         decision: ControlDecision,
         battery: dict[str, Any],
+        *,
+        power_w: float | None = None,
+        plan_power_w: float | None = None,
+        record_plan: bool = True,
     ) -> None:
+        if power_w is not None and abs(power_w - decision.power_w) > 1e-6:
+            decision = ControlDecision(
+                action="apply",
+                power_w=power_w,
+                mode=desired_mode(battery, power_w),
+                reason="zero_grid",
+                interval_start=decision.interval_start,
+            )
         try:
             decision = self._apply_soc_guard(decision, battery)
             await self._write_and_verify(decision, battery)
@@ -317,6 +454,10 @@ class BatteryController:
 
         self._last_interval_start = decision.interval_start
         self._last_power_w = round(decision.power_w, 1)
+        if record_plan:
+            self._last_plan_power_w = (
+                decision.power_w if plan_power_w is None else plan_power_w
+            )
         self._last_mode = decision.mode
         self._last_apply = dt_util.now()
         self._last_error = None
@@ -376,6 +517,12 @@ class BatteryController:
                     await asyncio.sleep(0.4)
                     continue
                 raise
+
+    async def async_optimize_live(self) -> bool:
+        """Force a plan refresh using the live battery SOC."""
+        async with self._lock:
+            self._last_refresh = None
+            return await self._refresh(dt_util.now())
 
     async def _ensure_control_mode(self, battery: dict[str, Any]) -> None:
         switch_entity = battery.get("control_switch_entity")
@@ -497,6 +644,7 @@ class BatteryController:
         self._last_fallback_reason = reason
         self._last_interval_start = None
         self._last_power_w = 0.0
+        self._last_plan_power_w = None
         self._last_mode = None
         battery = self._battery()
         if battery is not None and battery.get("setpoint_entity"):

@@ -428,3 +428,62 @@ async def test_control_loop_unsigned_direction_and_operating_mode(
 
     assert float(hass.states.get("input_number.anker_power").state) == 0
     assert hass.states.get("input_select.anker_operating_mode").state == "self_consumption"
+
+
+@pytest.mark.asyncio
+async def test_optimize_service_passes_live_soc(hass, aioclient_mock) -> None:
+    """The integration optimize path must send the configured battery SOC."""
+    plan = plan_payload()
+    config = {
+        "batteries": [
+            {
+                "name": "Battery",
+                "capacity_kwh": 7.2,
+                "max_charge_kw": 1.2,
+                "max_discharge_kw": 1.2,
+                "soc_entity": "sensor.battery_soc",
+                "setpoint_entity": "input_number.battery_setpoint",
+                "mode_entity": "input_select.battery_mode",
+                "mode_charge": "charge",
+                "mode_discharge": "discharge",
+            }
+        ]
+    }
+    aioclient_mock.get(
+        f"{BASE}/api/v1/health",
+        json={
+            "status": "ok",
+            "version": "2.0.0",
+            "demo": True,
+            "auth_required": False,
+            "plan_available": True,
+            "config_hash": "a" * 64,
+        },
+    )
+    aioclient_mock.get(f"{BASE}/api/v1/config", json=config)
+    aioclient_mock.get(f"{BASE}/api/v1/plan/latest", json=plan)
+    aioclient_mock.post(f"{BASE}/api/v1/optimize", json=plan)
+
+    hass.states.async_set("sensor.battery_soc", "29")
+    hass.states.async_set("input_number.battery_setpoint", "0")
+    hass.states.async_set("input_select.battery_mode", "idle")
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_URL: BASE, CONF_TOKEN: "test-token"},
+        unique_id=BASE,
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    await hass.services.async_call(DOMAIN, "optimize", {}, blocking=True)
+    await hass.async_block_till_done()
+
+    posts = [
+        call
+        for call in aioclient_mock.mock_calls
+        if str(call[0]).lower() == "post" and str(call[1]).endswith("/api/v1/optimize")
+    ]
+    assert posts, "optimize service did not call the engine"
+    assert posts[-1][2]["battery_soc_pct"] == 29

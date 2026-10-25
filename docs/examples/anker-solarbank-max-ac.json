@@ -47,7 +47,11 @@
   },
   "grid": {
     "max_import_kw": 17.0,
-    "max_export_kw": 17.0
+    "max_export_kw": 17.0,
+    "power_sensor_entity": "sensor.p1_meter_power",
+    "power_sensor_invert": false,
+    "zero_grid_deadband_w": 30.0,
+    "zero_grid_max_step_w": 1000.0
   },
   "solar": [
     {

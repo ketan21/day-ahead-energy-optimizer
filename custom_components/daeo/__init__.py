@@ -101,7 +101,11 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
     async def async_optimize(call: ServiceCall) -> None:
         data = _entry_data(hass)
-        await data["api"].async_optimize()
+        controller = data["controller"]
+        if not await controller.async_optimize_live():
+            raise HomeAssistantError(
+                controller.last_error or "Plan refresh with live SOC failed"
+            )
         await data["coordinator"].async_request_refresh()
 
     async def async_set_strategy(call: ServiceCall) -> None:
