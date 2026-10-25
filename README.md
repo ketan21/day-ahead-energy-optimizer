@@ -155,6 +155,9 @@ not add Dutch product strings or documentation.
   mapping, month/hour aggregation, and recalculation.
 - [Anker Solarbank Max AC example](docs/examples/anker-solarbank-max-ac.json) —
   import-ready battery, load-profile, and price configuration.
+- [Troubleshooting](docs/troubleshooting.md) — 404/token/ingress issues and the
+  difference between the legacy add-on, the new engine add-on, and the HACS
+  integration.
 - [Rebuild proposal](docs/rebuild-proposal.md) — decisions, architecture, API,
   Home Assistant integration, milestones.
 - Legacy documentation: [`dao/DOCS.md`](dao/DOCS.md) (Dutch, archived during the

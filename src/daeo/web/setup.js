@@ -407,7 +407,7 @@
 
     async function load() {
         try {
-            config = await api("/api/v1/config");
+            config = await api("api/v1/config");
             config.forecast ||= { solar_source: "synthetic" };
             stepIndex = 0;
             renderStep();
@@ -421,12 +421,12 @@
         finishButton.disabled = true;
         setStatus("Saving and computing the plan…", "info");
         try {
-            await api("/api/v1/config", {
+            await api("api/v1/config", {
                 method: "PUT",
                 body: JSON.stringify(config),
             });
             setStatus("Saved. Opening the plan…", "success");
-            window.setTimeout(() => window.location.assign("/"), 700);
+            window.setTimeout(() => window.location.assign(document.baseURI), 700);
         } catch (error) {
             setStatus(`Could not save: ${error.message}`, "error");
             finishButton.disabled = false;

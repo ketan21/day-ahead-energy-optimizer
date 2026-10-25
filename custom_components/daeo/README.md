@@ -98,6 +98,12 @@ controller cannot drive it yet; a device-specific driver is needed.
 - `daeo.set_strategy` — set `minimize_cost` or `minimize_import`.
 - `daeo.export_plan` — return the latest plan as a service response.
 
+## Troubleshooting
+
+A 404 usually means the URL is the HA ingress URL, HA Core, or the legacy add-on,
+not the new engine API. Use `http://homeassistant.local:8099` and the token printed
+in the add-on log. See [`docs/troubleshooting.md`](../../docs/troubleshooting.md).
+
 ## Limitations
 
 - The engine is the source of truth. The integration polls it every five minutes.

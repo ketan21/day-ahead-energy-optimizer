@@ -7,7 +7,7 @@ from datetime import timedelta
 DOMAIN = "daeo"
 NAME = "Day Ahead Energy Optimizer"
 MANUFACTURER = "DAEO"
-VERSION = "2.1.0"
+VERSION = "2.1.2"
 
 CONF_URL = "url"
 CONF_TOKEN = "token"

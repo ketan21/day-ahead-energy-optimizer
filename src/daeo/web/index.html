@@ -3,6 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <base id="app-base" href="./">
+    <script>
+        (function () {
+            let path = window.location.pathname.replace(/index\.html$/, "");
+            if (!path.endsWith("/")) path += "/";
+            document.getElementById("app-base").href = path;
+        })();
+    </script>
     <title>Day Ahead Energy Optimizer</title>
     <style>
         :root {
@@ -140,9 +148,9 @@
         <div class="meta" id="version">loading…</div>
     </div>
     <nav class="nav-links">
-        <a class="active" href="/">Plan</a>
-        <a href="/setup">Guided setup</a>
-        <a href="/settings">Settings</a>
+        <a class="active" href=".">Plan</a>
+        <a href="setup">Guided setup</a>
+        <a href="settings">Settings</a>
     </nav>
     <div class="toolbar">
         <input id="token" type="password" autocomplete="off" placeholder="API token">
@@ -347,10 +355,10 @@
 
     async function load() {
         try {
-            const health = await api("/api/v1/health");
+            const health = await api("api/v1/health");
             $("version").textContent = `v${health.version}${health.demo ? " · demo engine" : ""}`;
             try {
-                const plan = await api("/api/v1/plan/latest");
+                const plan = await api("api/v1/plan/latest");
                 render(plan);
             } catch (error) {
                 $("cards").hidden = true;
@@ -366,7 +374,7 @@
         button.disabled = true;
         setStatus("Running optimization…");
         try {
-            const result = await api("/api/v1/optimize", {
+            const result = await api("api/v1/optimize", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({dry_run: false}),

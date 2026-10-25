@@ -3,16 +3,23 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <base id="app-base" href="../">
+    <script>
+        (function () {
+            let path = window.location.pathname.replace(/\/setup\/?$/, "/");
+            document.getElementById("app-base").href = path;
+        })();
+    </script>
     <title>Guided setup — Day Ahead Energy Optimizer</title>
-    <link rel="stylesheet" href="/static/app.css">
+    <link rel="stylesheet" href="static/app.css">
 </head>
 <body>
 <header class="top">
     <div class="brand">Day Ahead Energy Optimizer<small>Guided setup</small></div>
     <nav class="main">
-        <a href="/">Plan</a>
-        <a class="active" href="/setup">Guided setup</a>
-        <a href="/settings">Settings</a>
+        <a href=".">Plan</a>
+        <a class="active" href="setup">Guided setup</a>
+        <a href="settings">Settings</a>
     </nav>
     <div class="toolbar">
         <input id="token" type="password" autocomplete="off" placeholder="API token">
@@ -26,7 +33,7 @@
             <h1>Set up your home</h1>
             <p>Five short steps. You can change everything later in Settings.</p>
         </div>
-        <a class="pill" href="/settings">Advanced settings</a>
+        <a class="pill" href="settings">Advanced settings</a>
     </div>
 
     <div class="steps" id="steps"></div>
@@ -45,6 +52,6 @@
     </p>
 </main>
 
-<script src="/static/setup.js"></script>
+<script src="static/setup.js"></script>
 </body>
 </html>

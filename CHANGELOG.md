@@ -26,6 +26,12 @@ remains in [`dao/CHANGELOG.md`](dao/CHANGELOG.md) until the M4 cutover.
 - `docker-compose.yml`: standalone demo.
 - `pyproject.toml` and a dedicated CI workflow.
 
+### Fixed — 2.1.2
+
+- UI assets, API calls, and navigation now use ingress-relative URLs, so the plan,
+  settings, and setup pages work under `/api/hassio_ingress/...` as well as directly.
+- Add-on image version bumped to 2.1.2 so Supervisor pulls the fixed image.
+
 ### Added — add-on image publishing
 
 - `.github/workflows/daeo-image.yml` builds multi-arch amd64/arm64 images and

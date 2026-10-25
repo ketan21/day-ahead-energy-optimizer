@@ -605,8 +605,8 @@
     async function load() {
         hideStatus();
         try {
-            rootSchema = await api("/api/v1/config/schema");
-            config = await api("/api/v1/config");
+            rootSchema = await api("api/v1/config/schema");
+            config = await api("api/v1/config");
             dirty = false;
             renderAll();
             setStatus("Settings loaded.", "info");
@@ -619,7 +619,7 @@
         clearErrors();
         setStatus("Saving…", "info");
         try {
-            const result = await api("/api/v1/config", {
+            const result = await api("api/v1/config", {
                 method: "PUT",
                 body: JSON.stringify(config),
             });
@@ -640,7 +640,7 @@
         clearErrors();
         setStatus("Validating…", "info");
         try {
-            await api("/api/v1/config/validate", {
+            await api("api/v1/config/validate", {
                 method: "POST",
                 body: JSON.stringify(config),
             });
@@ -652,7 +652,7 @@
 
     async function exportConfig() {
         try {
-            const body = await api("/api/v1/config/export");
+            const body = await api("api/v1/config/export");
             const blob = new Blob([JSON.stringify(body, null, 2)], {
                 type: "application/json",
             });
@@ -683,8 +683,8 @@
             return;
         }
         try {
-            const demo = await api("/api/v1/config/demo");
-            const result = await api("/api/v1/config", {
+            const demo = await api("api/v1/config/demo");
+            const result = await api("api/v1/config", {
                 method: "PUT",
                 body: JSON.stringify(demo),
             });
@@ -703,7 +703,7 @@
             return;
         }
         try {
-            const presence = await api("/api/v1/secrets");
+            const presence = await api("api/v1/secrets");
             renderSecrets(presence);
         } catch (error) {
             secretsHost.replaceChildren();
@@ -751,7 +751,7 @@
             return;
         }
         try {
-            await api("/api/v1/secrets", {
+            await api("api/v1/secrets", {
                 method: "PUT",
                 body: JSON.stringify(payload),
             });
@@ -767,7 +767,7 @@
 
     async function clearSecret(key) {
         try {
-            await api("/api/v1/secrets", {
+            await api("api/v1/secrets", {
                 method: "PUT",
                 body: JSON.stringify({ [key]: "" }),
             });
@@ -787,7 +787,7 @@
     document.getElementById("recalculate-load").addEventListener("click", async () => {
         setStatus("Reading HA recorder statistics…", "info");
         try {
-            const result = await api("/api/v1/load-profile/calculate", {
+            const result = await api("api/v1/load-profile/calculate", {
                 method: "POST",
                 body: "{}",
             });
