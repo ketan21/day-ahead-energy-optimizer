@@ -6,6 +6,7 @@
         ["home", "Home"],
         ["prices", "Prices & tariff"],
         ["forecast", "Forecast"],
+        ["load", "Load profile"],
         ["solar", "Solar arrays"],
         ["batteries", "Batteries"],
         ["electric_vehicles", "Electric vehicles"],

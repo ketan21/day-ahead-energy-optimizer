@@ -26,6 +26,13 @@ remains in [`dao/CHANGELOG.md`](dao/CHANGELOG.md) until the M4 cutover.
 - `docker-compose.yml`: standalone demo.
 - `pyproject.toml` and a dedicated CI workflow.
 
+### Fixed — 2.1.3
+
+- Added the missing **Load profile** card to Settings. The `load` config section
+  existed in the schema/API but was omitted from the Settings UI, so recorder mode
+  and its sensor lists could not be configured there.
+- Added a regression test that every top-level `Config` field has a Settings card.
+
 ### Fixed — 2.1.2
 
 - UI assets, API calls, and navigation now use ingress-relative URLs, so the plan,

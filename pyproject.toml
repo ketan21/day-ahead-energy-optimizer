@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daeo"
-version = "2.1.2.dev0"
+version = "2.1.3.dev0"
 description = "Day Ahead Energy Optimizer engine: plan battery, boiler, heat pump and EV use against dynamic prices."
 readme = "README.md"
 requires-python = ">=3.12"
