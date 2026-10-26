@@ -26,6 +26,20 @@ remains in [`dao/CHANGELOG.md`](dao/CHANGELOG.md) until the M4 cutover.
 - `docker-compose.yml`: standalone demo.
 - `pyproject.toml` and a dedicated CI workflow.
 
+### Fixed — 2.2.1
+
+- EnergyZero prices now use `all_in_with_vat` for import and the `base`/market
+  series for export. Export can be negative; a fixed export price or feed-in adder
+  is an optional override. The example leaves the fixed export unset.
+- Removed the ad-hoc PV-export penalty. Dispatch is driven by the real export price,
+  curtailment opportunity cost, terminal SOC value, cycle cost, and a small
+  zero-exchange preference.
+- Grid correction now starts from the last applied battery setpoint, not the plan
+  baseline. A closed-loop 900→700 W load-step test verifies the battery ramps down
+  by exactly 200 W once the meter is at zero.
+- Added a realistic sunny/cloudy simulation with EPEX-like export prices and a
+  closed-loop control demonstration.
+
 ### Added — 2.2.0
 
 - **Self-consumption is now the default grid strategy.** The solver prefers

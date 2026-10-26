@@ -56,14 +56,14 @@ The token is the **DAEO engine token**, not a Home Assistant long-lived token.
   integration entry and add it again with the new token.
 - The HACS integration stores the token at creation. There is no token edit field in
   the options flow yet; delete and re-add the entry.
-- The integration requires the latest release (2.2.0), which validates the token
+- The integration requires the latest release (2.2.1), which validates the token
   against `/api/v1/config`. An older build may accept a wrong token and fail later.
 
 ## Settings page does not load in HA ingress
 
 The engine UI now uses relative paths and a `<base>` tag so it works under
 `/api/hassio_ingress/...` as well as directly. The installed add-on image must be
-**2.2.0 or newer**; older images use absolute `/api/v1` and `/static` paths and break
+**2.2.1 or newer**; older images use absolute `/api/v1` and `/static` paths and break
 under ingress.
 
 If it still fails:
