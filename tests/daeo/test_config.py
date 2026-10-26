@@ -13,7 +13,7 @@ from daeo.config.models import (
     SchedulerConfig,
     SolarConfig,
 )
-from daeo.domain.enums import PriceSource, TaskAction
+from daeo.domain.enums import GridMode, PriceSource, TaskAction
 
 
 def test_default_config_is_valid() -> None:
@@ -21,6 +21,7 @@ def test_default_config_is_valid() -> None:
     assert config.schema_version == 1
     assert config.home.country.value == "NL"
     assert config.strategy.interval.minutes == 15
+    assert config.strategy.grid_mode is GridMode.SELF_CONSUMPTION
     assert len(config.scheduler.entries) == 3
 
 

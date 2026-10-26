@@ -24,11 +24,16 @@ from .control import (
     setpoint_write_value,
 )
 from .coordinator import DaeoCoordinator
-from .plan import current_interval, plan_age_seconds, plan_expected_soc
+from .plan import (
+    current_interval,
+    parse_datetime,
+    plan_age_seconds,
+    plan_expected_soc,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
-TICK_INTERVAL = timedelta(seconds=30)
+TICK_INTERVAL = timedelta(seconds=10)
 REFRESH_THROTTLE = timedelta(minutes=5)
 POWER_TOLERANCE_W = 10.0
 
@@ -141,22 +146,19 @@ class BatteryController:
         interval: dict[str, Any] | None,
         battery: dict[str, Any],
     ) -> float | None:
-        """Return a corrected setpoint that drives the live meter to zero.
+        """Return a setpoint corrected to the interval's planned grid target.
 
-        Only plan intervals that target zero grid import/export and have a
-        non-zero battery action are corrected. Grid-charge and export-arbitrage
-        intervals keep their planned setpoint.
+        The plan's own grid target is used, so self-consumption intervals target
+        zero while arbitrage intervals follow their planned import/export. A
+        battery explicitly marked idle (no charge/discharge) is never corrected.
         """
         if not interval:
-            return None
-        if abs(float(interval.get("grid_import_kwh", 0.0))) > 1e-6:
-            return None
-        if abs(float(interval.get("grid_export_kwh", 0.0))) > 1e-6:
             return None
         if (
             float(interval.get("battery_charge_kwh", 0.0)) <= 1e-6
             and float(interval.get("battery_discharge_kwh", 0.0)) <= 1e-6
         ):
+            # Explicitly idle: do not invent battery activity.
             return None
         config = self.coordinator.data.config if self.coordinator.data else {}
         grid = config.get("grid") or {}
@@ -173,13 +175,22 @@ class BatteryController:
         if grid.get("power_sensor_invert"):
             grid_w = -grid_w
 
+        start = parse_datetime(interval["start"])
+        end = parse_datetime(interval["end"])
+        hours = max((end - start).total_seconds() / 3600, 1e-6)
+        target_w = (
+            float(interval.get("grid_import_kwh", 0.0))
+            - float(interval.get("grid_export_kwh", 0.0))
+        ) / hours * 1000
+
         deadband = float(grid.get("zero_grid_deadband_w", 30.0))
-        if abs(grid_w) <= deadband:
+        error_w = grid_w - target_w
+        if abs(error_w) <= deadband:
             return None
 
         max_charge_w = float(battery.get("max_charge_kw", 0.0)) * 1000
         max_discharge_w = float(battery.get("max_discharge_kw", 0.0)) * 1000
-        adjusted = base_power_w - grid_w
+        adjusted = base_power_w - error_w
         adjusted = max(-max_discharge_w, min(max_charge_w, adjusted))
 
         max_step = float(grid.get("zero_grid_max_step_w", 1000.0))

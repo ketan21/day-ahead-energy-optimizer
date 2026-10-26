@@ -26,7 +26,7 @@ from datetime import timedelta
 
 from mip import BINARY, CBC, CONTINUOUS, Model, OptimizationStatus, minimize, xsum
 
-from daeo.domain.enums import Objective, PlanStatus
+from daeo.domain.enums import GridMode, Objective, PlanStatus
 from daeo.domain.inputs import FlexibleLoadInput, OptimizationInput
 from daeo.domain.plan import Interval, Plan, PlanSummary, SolverInfo
 from daeo.solver.base import SolverError
@@ -523,7 +523,21 @@ class CbcSolver:
             for variables in battery_vars
             for index in range(count)
         )
-        if inputs.objective is Objective.MINIMIZE_IMPORT:
+        if inputs.grid_mode is GridMode.SELF_CONSUMPTION:
+            # Prefer self-consumption, but keep the cost signal alive:
+            # - curtailment is heavily penalised so free PV is stored first,
+            # - grid exchange has a small penalty so zero P1 wins when the price
+            #   spread does not justify trading,
+            # - the normal cost terms still allow profitable battery export at
+            #   expensive moments and grid charging ahead of known cheap periods.
+            exchange = xsum(import_kwh) + xsum(export_kwh)
+            objective = (
+                exchange * 0.02
+                + xsum(curtail_kwh) * 1.0
+                + xsum(cost_terms)
+                + cycle_cost
+            )
+        elif inputs.objective is Objective.MINIMIZE_IMPORT:
             objective = xsum(import_kwh) + 1e-6 * xsum(cost_terms)
         else:
             objective = xsum(cost_terms) + cycle_cost

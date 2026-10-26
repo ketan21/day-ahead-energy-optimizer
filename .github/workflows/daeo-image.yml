@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Image tag matching addon/config.yaml (for example 2.1.5)"
+        description: "Image tag matching addon/config.yaml (for example 2.2.0)"
         required: true
-        default: "2.1.5"
+        default: "2.2.0"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -45,7 +45,7 @@ jobs:
           images: ghcr.io/${{ github.repository_owner }}/daeo
           tags: |
             type=semver,pattern={{version}}
-            type=raw,value=${{ github.event.inputs.version || '2.1.5' }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=raw,value=${{ github.event.inputs.version || '2.2.0' }},enable=${{ github.event_name == 'workflow_dispatch' }}
             type=raw,value=latest
           labels: |
             org.opencontainers.image.title=Day Ahead Energy Optimizer

@@ -12,7 +12,7 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from daeo.domain.enums import Objective
+from daeo.domain.enums import GridMode, Objective
 
 
 class PricePoint(BaseModel):
@@ -161,6 +161,7 @@ class OptimizationInput(BaseModel):
     grid_max_import_kw: float = Field(default=17, gt=0)
     grid_max_export_kw: float = Field(default=17, gt=0)
     objective: Objective = Objective.MINIMIZE_COST
+    grid_mode: GridMode = GridMode.ARBITRAGE
     allow_export: bool = True
     reserve_soc_pct: float = Field(default=20, ge=0, le=100)
     cycle_cost_eur_kwh: float = Field(default=0.0, ge=0)

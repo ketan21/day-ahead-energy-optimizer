@@ -8,7 +8,7 @@ SQLite plan store. The Home Assistant integration is a separate HACS artifact.
 The add-on pulls:
 
 ```text
-ghcr.io/ketan21/daeo:2.1.5
+ghcr.io/ketan21/daeo:2.2.0
 ```
 
 The version tag must match `version` in `addon/config.yaml`. The image is built by
@@ -20,11 +20,11 @@ The version tag must match `version` in `addon/config.yaml`. The image is built 
 2. Tag the repository:
 
 ```bash
-git tag v2.1.5
-git push origin v2.1.5
+git tag v2.2.0
+git push origin v2.2.0
 ```
 
-or run the **DAEO add-on image** workflow manually with `version: 2.1.5`.
+or run the **DAEO add-on image** workflow manually with `version: 2.2.0`.
 3. Make the GHCR package **public**:
    GitHub → your profile → Packages → `daeo` → Package settings → Change visibility.
 
@@ -34,7 +34,7 @@ credentials.
 ### Build locally
 
 ```bash
-docker build -f addon/Dockerfile -t ghcr.io/ketan21/daeo:2.1.5 .
+docker build -f addon/Dockerfile -t ghcr.io/ketan21/daeo:2.2.0 .
 ```
 
 The build context is the repository root.

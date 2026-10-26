@@ -293,6 +293,7 @@ def build_inputs(
         grid_max_import_kw=config.grid.max_import_kw,
         grid_max_export_kw=config.grid.max_export_kw,
         objective=config.strategy.objective,
+        grid_mode=config.strategy.grid_mode,
         allow_export=config.strategy.allow_export,
         reserve_soc_pct=config.strategy.reserve_soc_pct,
         cycle_cost_eur_kwh=config.strategy.cycle_cost_eur_kwh,

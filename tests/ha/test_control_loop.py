@@ -36,6 +36,7 @@ def plan_payload(
     now=None,
     grid_import_kwh: float = 0.0,
     grid_export_kwh: float = 0.0,
+    battery_discharge_kwh: float = 0.143,
 ) -> dict:
     now = now or dt_util.now()
     start = now.replace(minute=(now.minute // 15) * 15, second=0, microsecond=0)
@@ -55,7 +56,7 @@ def plan_payload(
                 "load_kwh": 0.143,
                 "pv_kwh": 0.0,
                 "battery_charge_kwh": 0.0,
-                "battery_discharge_kwh": 0.143,
+                "battery_discharge_kwh": battery_discharge_kwh,
                 "soc_pct": soc_pct,
                 "ev_kwh": 0.0,
                 "boiler_kwh": 0.0,
@@ -219,8 +220,8 @@ async def test_zero_grid_correction_uses_live_p1_power(hass) -> None:
 
 
 @pytest.mark.asyncio
-async def test_zero_grid_correction_leaves_grid_charge_intervals_alone(hass) -> None:
-    """A planned grid import interval must keep its planned battery setpoint."""
+async def test_grid_correction_follows_planned_grid_target(hass) -> None:
+    """A planned grid target of 800 W is followed instead of forcing zero."""
     now = dt_util.now()
     old_plan = plan_payload(47.9, now=now, grid_import_kwh=0.2)
     live_plan = plan_payload(27.0, now=now, grid_import_kwh=0.2)
@@ -251,5 +252,40 @@ async def test_zero_grid_correction_leaves_grid_charge_intervals_alone(hass) -> 
     controller = BatteryController(hass, None, coordinator)
     await controller.async_set_armed(True)
 
-    assert controller.last_power_w == -572.0
-    assert hass.states.get("input_number.battery_setpoint").state == "-572.0"
+    # Planned 0.2 kWh in a 15-minute interval is 800 W. Actual 500 W means
+    # reduce discharge by 300 W: -572 + (800 - 500) = -272 W.
+    assert controller.last_power_w == -272.0
+    assert hass.states.get("input_number.battery_setpoint").state == "-272.0"
+
+
+@pytest.mark.asyncio
+async def test_grid_correction_skips_explicitly_idle_battery(hass) -> None:
+    """An idle plan interval must not be turned into battery activity."""
+    now = dt_util.now()
+    old_plan = plan_payload(47.9, now=now, battery_discharge_kwh=0.0)
+    live_plan = plan_payload(29.0, now=now, battery_discharge_kwh=0.0)
+    coordinator = FakeCoordinator(
+        old_plan,
+        live_plan,
+        {"power_sensor_entity": "sensor.grid_power"},
+    )
+
+    hass.states.async_set("sensor.battery_soc", "29")
+    hass.states.async_set("sensor.grid_power", "500")
+    hass.states.async_set("input_number.battery_setpoint", "0")
+    hass.states.async_set("input_select.battery_mode", "idle")
+
+    async def set_value(call: ServiceCall) -> None:
+        hass.states.async_set(call.data["entity_id"], str(call.data["value"]))
+
+    async def select_option(call: ServiceCall) -> None:
+        hass.states.async_set(call.data["entity_id"], call.data["option"])
+
+    hass.services.async_register("input_number", "set_value", set_value)
+    hass.services.async_register("input_select", "select_option", select_option)
+
+    controller = BatteryController(hass, None, coordinator)
+    await controller.async_set_armed(True)
+
+    assert controller.last_power_w == 0.0
+    assert hass.states.get("input_number.battery_setpoint").state in ("0", "0.0")

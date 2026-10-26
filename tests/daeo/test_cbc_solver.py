@@ -8,6 +8,7 @@ import pytest
 
 pytest.importorskip("mip")
 
+from daeo.domain.enums import GridMode  # noqa: E402
 from daeo.domain.inputs import (  # noqa: E402
     BatteryInput,
     BatteryStage,
@@ -32,6 +33,7 @@ def make_inputs(
     evs: list[EVInput] | None = None,
     boiler: FlexibleLoadInput | None = None,
     export_price: float | None = None,
+    grid_mode: GridMode = GridMode.ARBITRAGE,
 ) -> OptimizationInput:
     count = len(prices)
     return OptimizationInput(
@@ -53,13 +55,14 @@ def make_inputs(
         boiler=boiler,
         grid_max_import_kw=50,
         grid_max_export_kw=50,
+        grid_mode=grid_mode,
         allow_export=True,
         reserve_soc_pct=0,
         cycle_cost_eur_kwh=0.0,
         max_gap_eur=0.0,
         solver_threads=1,
         config_hash="a" * 64,
-        sources={"prices": "test", "pv": "test"},
+        sources={"prices": "test", "pv": "test", "grid_mode": grid_mode.value},
     )
 
 
@@ -199,3 +202,72 @@ def test_reduced_power_at_high_soc() -> None:
     assert charged
     assert all(interval.soc_pct < 70 for interval in charged)
     assert plan.summary.cost_eur < 0
+
+
+def test_self_consumption_charges_from_pv_before_curtailing() -> None:
+    storage = battery(
+        capacity_kwh=4,
+        max_charge_kw=1,
+        max_discharge_kw=1,
+        min_soc_pct=10,
+        initial_soc_pct=20,
+    )
+    plan = CbcSolver().solve(
+        make_inputs(
+            [0.1, 0.1, 1.0],
+            load=[0.5, 0.5, 0.5],
+            pv=[0.0, 2.0, 0.0],
+            batteries=[storage],
+            grid_mode=GridMode.SELF_CONSUMPTION,
+        )
+    )
+    surplus = plan.intervals[1]
+    assert surplus.battery_charge_kwh == pytest.approx(1.0)
+    assert surplus.soc_pct > 20.0
+    assert plan.intervals[2].battery_discharge_kwh > 0.0
+    assert plan.sources["grid_mode"] == "self_consumption"
+
+
+def test_self_consumption_exports_battery_at_high_price() -> None:
+    storage = battery(
+        capacity_kwh=4,
+        max_charge_kw=1,
+        max_discharge_kw=1,
+        min_soc_pct=10,
+        initial_soc_pct=50,
+    )
+    plan = CbcSolver().solve(
+        make_inputs(
+            [0.1, 1.0],
+            load=[0.5, 0.5],
+            pv=[0.0, 0.0],
+            batteries=[storage],
+            grid_mode=GridMode.SELF_CONSUMPTION,
+        )
+    )
+    expensive = plan.intervals[1]
+    assert expensive.battery_discharge_kwh == pytest.approx(1.0)
+    assert expensive.grid_import_kwh == pytest.approx(0.0)
+    assert expensive.grid_export_kwh == pytest.approx(0.5)
+
+
+def test_self_consumption_grid_charges_before_known_arbitrage() -> None:
+    storage = battery(
+        capacity_kwh=4,
+        max_charge_kw=1,
+        max_discharge_kw=1,
+        min_soc_pct=10,
+        initial_soc_pct=10,
+    )
+    plan = CbcSolver().solve(
+        make_inputs(
+            [0.1, 1.0],
+            load=[0.5, 0.5],
+            pv=[0.0, 0.0],
+            batteries=[storage],
+            grid_mode=GridMode.SELF_CONSUMPTION,
+        )
+    )
+    assert plan.intervals[0].battery_charge_kwh == pytest.approx(1.0)
+    assert plan.intervals[0].grid_import_kwh == pytest.approx(1.5)
+    assert plan.intervals[1].battery_discharge_kwh == pytest.approx(1.0)

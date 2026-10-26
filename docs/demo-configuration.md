@@ -82,6 +82,7 @@ The most useful fields for a first pass:
 | `prices.source` | Use `"fixed"` to make the demo follow your flat tariff. |
 | `prices.fixed_import_price_eur_kwh` | All-in import price in EUR/kWh. |
 | `prices.fixed_export_price_eur_kwh` | Export/feed-in price in EUR/kWh. |
+| `strategy.grid_mode` | `"self_consumption"` (default, zero P1 while the battery can balance) or `"arbitrage"` (allow planned grid charging/export). |
 | `strategy.interval` | `"quarter_hour"` or `"hour"`. |
 | `strategy.reserve_soc_pct` | Battery reserve used by the demo heuristic. |
 | `strategy.cycle_cost_eur_kwh` | Battery cycle cost. |

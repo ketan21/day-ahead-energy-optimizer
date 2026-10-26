@@ -22,6 +22,7 @@ from pydantic import (
 
 from daeo.domain.enums import (
     Country,
+    GridMode,
     Interval,
     LoadSource,
     Objective,
@@ -950,6 +951,17 @@ class StrategyConfig(DaeoModel):
     objective: Objective = Field(
         default=Objective.MINIMIZE_COST,
         json_schema_extra={"x-ui-group": "Optimization", "x-ui-section": "Strategy"},
+    )
+    grid_mode: GridMode = Field(
+        default=GridMode.SELF_CONSUMPTION,
+        description="Self-consumption keeps the meter at zero while the battery can balance; arbitrage allows planned grid charging and export.",
+        json_schema_extra={
+            "x-ui-group": "Optimization",
+            "x-ui-section": "Strategy",
+            "x-help": "Self-consumption prioritises zero P1, consumes PV before export or "
+            "curtailment, and only imports when the battery cannot cover the load. "
+            "Arbitrage allows profitable grid charging and export.",
+        },
     )
     interval: Interval = Field(
         default=Interval.QUARTER_HOUR,

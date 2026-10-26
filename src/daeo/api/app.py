@@ -155,6 +155,7 @@ def _solve(
             else "synthetic"
         ),
         "load": "recorder" if load_kwh is not None else "synthetic",
+        "grid_mode": config.strategy.grid_mode.value,
     }
     inputs = build_inputs(
         config,

@@ -53,6 +53,13 @@ class Objective(StrEnum):
     MINIMIZE_IMPORT = "minimize_import"
 
 
+class GridMode(StrEnum):
+    """How the plan treats grid exchange."""
+
+    SELF_CONSUMPTION = "self_consumption"
+    ARBITRAGE = "arbitrage"
+
+
 class Interval(StrEnum):
     """Optimization interval."""
 

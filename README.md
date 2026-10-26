@@ -21,7 +21,10 @@ first markets.
 - Builds real month/hour load profiles from the Home Assistant recorder statistics
   (P1 import/export, PV, battery, and optional device meters).
 - Optimizes battery charging, boiler heating, heat-pump stages, EV charging, and
-  appliance windows for the next 24 hours.
+  appliance windows for the next 24 hours. The default self-consumption strategy
+  keeps P1 at zero while the battery can balance, consumes PV before export or
+  curtailment, and still allows profitable battery export or grid charging when the
+  future price spread justifies it.
 - Explains every interval: price, PV, load, battery, grid, cost, and the reason for
   the decision.
 - Publishes a plan that the UI, the API, and the Home Assistant integration consume.

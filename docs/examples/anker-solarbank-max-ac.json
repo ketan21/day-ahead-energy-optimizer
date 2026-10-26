@@ -38,6 +38,7 @@
   },
   "strategy": {
     "objective": "minimize_cost",
+    "grid_mode": "self_consumption",
     "interval": "quarter_hour",
     "allow_export": true,
     "reserve_soc_pct": 20.0,

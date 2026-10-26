@@ -26,6 +26,23 @@ remains in [`dao/CHANGELOG.md`](dao/CHANGELOG.md) until the M4 cutover.
 - `docker-compose.yml`: standalone demo.
 - `pyproject.toml` and a dedicated CI workflow.
 
+### Added — 2.2.0
+
+- **Self-consumption is now the default grid strategy.** The solver prioritises
+  avoiding grid exchange and PV curtailment over cost, charges the battery from PV
+  surplus before exporting or curtailing, and imports only when the battery cannot
+  cover the load. `strategy.grid_mode: arbitrage` restores the previous cost-only
+  behavior.
+- Self-consumption remains cost-aware: curtailment is heavily penalised so PV is
+  stored first; grid exchange has a small preference for zero; and the normal price
+  objective may discharge the battery above the house load at expensive moments or
+  charge ahead of a known cheap-to-expensive spread.
+- The plan now carries a planned grid target per interval. The controller follows
+  that target against the live P1 every 10 seconds, not only in zero-grid
+  intervals. Explicitly idle battery intervals are left alone.
+- Added self-consumption PV-charging, high-price export, and grid-charge-arbitrage
+  solver tests, plus planned-grid-target/idle controller tests.
+
 ### Fixed — 2.1.5
 
 - A Forecast.Solar outage or rate limit no longer blocks config saves, load-profile
