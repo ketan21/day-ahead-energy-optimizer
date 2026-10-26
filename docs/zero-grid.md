@@ -4,6 +4,11 @@ The plan is built from forecast load. The actual household load will differ, so 
 plan-following controller alone can import or export more than intended. The live
 correction closes that gap using the net-meter power.
 
+Grid import is priced all-in (spot + VAT + energy tax + supplier markup). Grid
+export is priced at EPEX/market spot only, optionally plus a fixed feed-in adder.
+Export can be negative. EnergyZero provides both series; the fixed export field is
+only an override.
+
 ## Self-consumption default
 
 The default strategy is **self-consumption**:

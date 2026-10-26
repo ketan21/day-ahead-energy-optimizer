@@ -21,6 +21,7 @@ from .control import (
     clamp_power_for_soc,
     decide_control,
     desired_mode,
+    grid_corrected_power,
     setpoint_write_value,
 )
 from .coordinator import DaeoCoordinator
@@ -183,28 +184,17 @@ class BatteryController:
             - float(interval.get("grid_export_kwh", 0.0))
         ) / hours * 1000
 
-        deadband = float(grid.get("zero_grid_deadband_w", 30.0))
-        error_w = grid_w - target_w
-        if abs(error_w) <= deadband:
-            return None
-
-        max_charge_w = float(battery.get("max_charge_kw", 0.0)) * 1000
-        max_discharge_w = float(battery.get("max_discharge_kw", 0.0)) * 1000
-        adjusted = base_power_w - error_w
-        adjusted = max(-max_discharge_w, min(max_charge_w, adjusted))
-
-        max_step = float(grid.get("zero_grid_max_step_w", 1000.0))
-        if max_step > 0 and self._last_power_w is not None:
-            delta = adjusted - self._last_power_w
-            delta = max(-max_step, min(max_step, delta))
-            adjusted = self._last_power_w + delta
-
-        minimum = float(battery.get("minimum_power_kw", 0.0)) * 1000
-        if abs(adjusted) < max(minimum, 1.0):
-            adjusted = 0.0
-        if self._last_power_w is not None and abs(adjusted - self._last_power_w) < deadband:
-            return None
-        return round(adjusted, 1)
+        return grid_corrected_power(
+            base_power_w,
+            grid_w,
+            target_w,
+            max_charge_w=float(battery.get("max_charge_kw", 0.0)) * 1000,
+            max_discharge_w=float(battery.get("max_discharge_kw", 0.0)) * 1000,
+            deadband_w=float(grid.get("zero_grid_deadband_w", 30.0)),
+            max_step_w=float(grid.get("zero_grid_max_step_w", 1000.0)),
+            last_power_w=self._last_power_w,
+            minimum_power_w=float(battery.get("minimum_power_kw", 0.0)) * 1000,
+        )
 
     def _plan_soc_mismatch(
         self,
@@ -339,8 +329,13 @@ class BatteryController:
         adjusted = None
         if decision.action in ("apply", "none"):
             try:
+                correction_base = (
+                    self._last_power_w
+                    if self._last_power_w is not None
+                    else 0.0
+                )
                 adjusted = self._zero_grid_adjustment(
-                    decision.power_w, interval, battery
+                    correction_base, interval, battery
                 )
             except ControlError as error:
                 self._last_error = str(error)

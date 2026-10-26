@@ -180,7 +180,6 @@ class CbcSolver:
             )
             for index in range(count)
         ]
-
         battery_vars: list[dict] = []
         for battery_index, battery in enumerate(inputs.batteries):
             capacity = battery.capacity_kwh
@@ -497,9 +496,11 @@ class CbcSolver:
         for index in range(count):
             demand = inputs.load_kwh[index]
             supply = inputs.pv_kwh[index] - curtail_kwh[index]
+            battery_discharge = 0
             for variables in battery_vars:
                 demand += variables["ac_charge"][index]
                 supply += variables["ac_discharge"][index]
+                battery_discharge += variables["ac_discharge"][index]
             for variables in ev_vars:
                 if variables[index] is not None:
                     demand += variables[index]
@@ -523,6 +524,14 @@ class CbcSolver:
             for variables in battery_vars
             for index in range(count)
         )
+        average_price = sum(price.import_eur_kwh for price in inputs.prices) / count
+        final_energy = xsum(
+            variables["soc"][-1] for variables in battery_vars
+        )
+        initial_energy = sum(
+            variables["initial_energy"] for variables in battery_vars
+        )
+        terminal_soc_value = (final_energy - initial_energy) * average_price
         if inputs.grid_mode is GridMode.SELF_CONSUMPTION:
             # Prefer self-consumption, but keep the cost signal alive:
             # - curtailment is heavily penalised so free PV is stored first,
@@ -536,11 +545,15 @@ class CbcSolver:
                 + xsum(curtail_kwh) * 1.0
                 + xsum(cost_terms)
                 + cycle_cost
+                - terminal_soc_value
             )
         elif inputs.objective is Objective.MINIMIZE_IMPORT:
-            objective = xsum(import_kwh) + 1e-6 * xsum(cost_terms)
+            objective = (
+                xsum(import_kwh)
+                + 1e-6 * (xsum(cost_terms) - terminal_soc_value)
+            )
         else:
-            objective = xsum(cost_terms) + cycle_cost
+            objective = xsum(cost_terms) + cycle_cost - terminal_soc_value
         model.objective = minimize(objective)
 
         status = model.optimize(max_seconds=self.max_seconds)

@@ -82,15 +82,13 @@ def _solve(
     prices = None
     if config.prices.source is PriceSource.ENERGYZERO:
         end = start + timedelta(hours=24)
-        export_price = config.prices.fixed_export_price_eur_kwh
-        if export_price is None:
-            export_price = config.prices.feed_in_tariff_eur_kwh
         provider = price_provider or EnergyZeroProvider()
         prices = provider.fetch_prices(
             start,
             end,
             minutes,
-            export_price_eur_kwh=export_price,
+            export_price_eur_kwh=config.prices.fixed_export_price_eur_kwh,
+            export_price_adder_eur_kwh=config.prices.feed_in_tariff_eur_kwh,
         )
         start = prices[0].start
         end = prices[-1].start + timedelta(minutes=minutes)

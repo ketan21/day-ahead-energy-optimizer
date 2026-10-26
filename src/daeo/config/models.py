@@ -134,7 +134,6 @@ class PricingConfig(DaeoModel):
     )
     fixed_export_price_eur_kwh: float | None = Field(
         default=None,
-        ge=0,
         json_schema_extra={
             "x-ui-group": "Pricing",
             "x-ui-section": "Price source",

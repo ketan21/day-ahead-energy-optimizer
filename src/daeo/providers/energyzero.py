@@ -21,14 +21,16 @@ from daeo.providers.base import ProviderError
 
 BASE_URL = "https://public.api.energyzero.nl/public/v1/prices"
 
-SERIES_KEYS = (
+IMPORT_SERIES_KEYS = (
     "all_in_with_vat",
     "allInWithVat",
     "all_in",
     "allIn",
+)
+EXPORT_SERIES_KEYS = (
+    "base",
     "base_with_vat",
     "baseWithVat",
-    "base",
 )
 
 
@@ -71,7 +73,8 @@ class EnergyZeroProvider:
         end: datetime,
         interval_minutes: int,
         *,
-        export_price_eur_kwh: float = 0.0,
+        export_price_eur_kwh: float | None = None,
+        export_price_adder_eur_kwh: float = 0.0,
     ) -> list[PricePoint]:
         if start.tzinfo is None or end.tzinfo is None:
             raise ProviderError("EnergyZero requires timezone-aware start and end times")
@@ -114,21 +117,37 @@ class EnergyZeroProvider:
         except ValueError as error:
             raise ProviderError("EnergyZero returned invalid JSON") from error
 
-        series = None
-        for key in SERIES_KEYS:
+        import_series = None
+        for key in IMPORT_SERIES_KEYS:
             candidate = payload.get(key)
             if isinstance(candidate, list) and candidate:
-                series = candidate
+                import_series = candidate
                 break
-        if series is None:
+        if import_series is None:
             message = payload.get("message") if isinstance(payload, dict) else None
             raise ProviderError(
                 "EnergyZero did not return a price series"
                 + (f": {message}" if message else "")
             )
 
+        export_by_start: dict[datetime, float] = {}
+        for key in EXPORT_SERIES_KEYS:
+            candidate = payload.get(key)
+            if not isinstance(candidate, list) or not candidate:
+                continue
+            for entry in candidate:
+                try:
+                    entry_start = _parse_timestamp(entry["start"]).astimezone(
+                        start.tzinfo
+                    )
+                    export_by_start[entry_start] = _parse_price(entry)
+                except (KeyError, TypeError, ValueError):
+                    continue
+            if export_by_start:
+                break
+
         points: list[PricePoint] = []
-        for entry in series:
+        for entry in import_series:
             try:
                 entry_start = _parse_timestamp(entry["start"]).astimezone(start.tzinfo)
                 _parse_timestamp(entry["end"])
@@ -136,11 +155,15 @@ class EnergyZeroProvider:
                 raise ProviderError("EnergyZero returned an invalid time range") from error
             if not (start <= entry_start < end):
                 continue
+            if export_price_eur_kwh is not None:
+                export_price = export_price_eur_kwh
+            else:
+                export_price = export_by_start.get(entry_start, 0.0)
             points.append(
                 PricePoint(
                     start=entry_start,
                     import_eur_kwh=_parse_price(entry),
-                    export_eur_kwh=export_price_eur_kwh,
+                    export_eur_kwh=export_price + export_price_adder_eur_kwh,
                 )
             )
 

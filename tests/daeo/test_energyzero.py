@@ -21,7 +21,7 @@ def _entry(start: str, end: str, value: str) -> dict:
 
 
 def _payload(series_key: str = "all_in_with_vat") -> dict:
-    return {
+    payload = {
         "interval": "RESPONSE_INTERVAL_QUARTER",
         "range": {
             "start": "2026-11-14T23:00:00Z",
@@ -50,6 +50,13 @@ def _payload(series_key: str = "all_in_with_vat") -> dict:
             ),
         ],
     }
+    if series_key == "all_in_with_vat":
+        payload["base"] = [
+            _entry("2026-11-15T11:00:00Z", "2026-11-15T11:15:00Z", "0.04"),
+            _entry("2026-11-15T11:15:00Z", "2026-11-15T11:30:00Z", "-0.02"),
+            _entry("2026-11-15T11:30:00Z", "2026-11-15T11:45:00Z", "0.03"),
+        ]
+    return payload
 
 
 def _provider(payload: dict, status_code: int = 200, check=None):
@@ -125,3 +132,16 @@ def test_naive_datetime_is_reported() -> None:
             END.replace(tzinfo=None),
             15,
         )
+
+
+def test_fetch_uses_base_market_series_for_export() -> None:
+    provider = _provider(_payload())
+    prices = provider.fetch_prices(START, END, 15)
+    assert [point.import_eur_kwh for point in prices] == [0.31, 0.32, 0.33]
+    assert [point.export_eur_kwh for point in prices] == [0.04, -0.02, 0.03]
+
+
+def test_fixed_export_override_wins_over_market_series() -> None:
+    provider = _provider(_payload())
+    prices = provider.fetch_prices(START, END, 15, export_price_eur_kwh=0.01)
+    assert [point.export_eur_kwh for point in prices] == [0.01, 0.01, 0.01]

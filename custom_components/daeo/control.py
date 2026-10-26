@@ -132,3 +132,41 @@ def decide_control(
         reason="plan",
         interval_start=interval_start,
     )
+
+
+def grid_corrected_power(
+    base_power_w: float,
+    actual_grid_w: float,
+    target_grid_w: float,
+    *,
+    max_charge_w: float,
+    max_discharge_w: float,
+    deadband_w: float = 30.0,
+    max_step_w: float = 1000.0,
+    last_power_w: float | None = None,
+    minimum_power_w: float = 0.0,
+) -> float | None:
+    """Correct a planned battery setpoint against the live grid meter.
+
+    Positive battery power charges; positive grid power imports. The plan's own
+    target is used, so the same function serves self-consumption (target zero)
+    and arbitrage (planned import/export). Returns ``None`` when no write is
+    needed. This is deliberately pure so it can be exhaustively scenario-tested.
+    """
+    error_w = actual_grid_w - target_grid_w
+    if abs(error_w) <= deadband_w:
+        return None
+
+    adjusted = base_power_w - error_w
+    adjusted = max(-max_discharge_w, min(max_charge_w, adjusted))
+
+    if max_step_w > 0 and last_power_w is not None:
+        delta = adjusted - last_power_w
+        delta = max(-max_step_w, min(max_step_w, delta))
+        adjusted = last_power_w + delta
+
+    if abs(adjusted) < max(minimum_power_w, 1.0):
+        adjusted = 0.0
+    if last_power_w is not None and abs(adjusted - last_power_w) < deadband_w:
+        return None
+    return round(adjusted, 1)

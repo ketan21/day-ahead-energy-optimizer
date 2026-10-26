@@ -164,7 +164,15 @@ class FakeEnergyZeroProvider:
         self.fail = fail
         self.calls = 0
 
-    def fetch_prices(self, start, end, interval_minutes, *, export_price_eur_kwh=0.0):
+    def fetch_prices(
+        self,
+        start,
+        end,
+        interval_minutes,
+        *,
+        export_price_eur_kwh=None,
+        export_price_adder_eur_kwh=0.0,
+    ):
         self.calls += 1
         if self.fail:
             raise ProviderError("EnergyZero is down")
@@ -173,7 +181,8 @@ class FakeEnergyZeroProvider:
             PricePoint(
                 start=start + timedelta(minutes=index * interval_minutes),
                 import_eur_kwh=0.20 + index * 0.001,
-                export_eur_kwh=export_price_eur_kwh,
+                export_eur_kwh=(export_price_eur_kwh or 0.0)
+                + export_price_adder_eur_kwh,
             )
             for index in range(count)
         ]

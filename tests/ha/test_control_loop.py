@@ -213,9 +213,9 @@ async def test_zero_grid_correction_uses_live_p1_power(hass) -> None:
     controller = BatteryController(hass, None, coordinator)
     await controller.async_set_armed(True)
 
-    # Planned base is -572 W; 500 W live import adds another 500 W discharge.
-    assert controller.last_power_w == -1072.0
-    assert hass.states.get("input_number.battery_setpoint").state == "-1072.0"
+    # First correction starts from the last applied setpoint (0 W), not the plan base.
+    assert controller.last_power_w == -500.0
+    assert hass.states.get("input_number.battery_setpoint").state == "-500.0"
     assert hass.states.get("input_select.battery_mode").state == "discharge"
 
 
@@ -252,10 +252,10 @@ async def test_grid_correction_follows_planned_grid_target(hass) -> None:
     controller = BatteryController(hass, None, coordinator)
     await controller.async_set_armed(True)
 
-    # Planned 0.2 kWh in a 15-minute interval is 800 W. Actual 500 W means
-    # reduce discharge by 300 W: -572 + (800 - 500) = -272 W.
-    assert controller.last_power_w == -272.0
-    assert hass.states.get("input_number.battery_setpoint").state == "-272.0"
+    # Planned target is 800 W import. Last applied is 0 W and actual is 500 W,
+    # so charge 300 W to reach the target.
+    assert controller.last_power_w == 300.0
+    assert hass.states.get("input_number.battery_setpoint").state == "300.0"
 
 
 @pytest.mark.asyncio

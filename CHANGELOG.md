@@ -28,11 +28,11 @@ remains in [`dao/CHANGELOG.md`](dao/CHANGELOG.md) until the M4 cutover.
 
 ### Added — 2.2.0
 
-- **Self-consumption is now the default grid strategy.** The solver prioritises
-  avoiding grid exchange and PV curtailment over cost, charges the battery from PV
-  surplus before exporting or curtailing, and imports only when the battery cannot
-  cover the load. `strategy.grid_mode: arbitrage` restores the previous cost-only
-  behavior.
+- **Self-consumption is now the default grid strategy.** The solver prefers
+  avoiding grid exchange and PV curtailment, charges the battery from PV surplus,
+  and imports only when the battery cannot cover the load; it can still grid-charge
+  or export when the price spread justifies it. `strategy.grid_mode: arbitrage`
+  restores the previous cost-only behavior.
 - Self-consumption remains cost-aware: curtailment is heavily penalised so PV is
   stored first; grid exchange has a small preference for zero; and the normal price
   objective may discharge the battery above the house load at expensive moments or
@@ -42,6 +42,16 @@ remains in [`dao/CHANGELOG.md`](dao/CHANGELOG.md) until the M4 cutover.
   intervals. Explicitly idle battery intervals are left alone.
 - Added self-consumption PV-charging, high-price export, and grid-charge-arbitrage
   solver tests, plus planned-grid-target/idle controller tests.
+- EnergyZero prices now use two series: `all_in_with_vat` for import and the
+  `base`/market series for export. Export can be negative; a fixed export price or
+  feed-in adder is an optional override. The example no longer forces export to
+  zero.
+- Removed the ad-hoc PV-export penalty. Dispatch is driven by the real export price,
+  curtailment opportunity cost, terminal SOC value, cycle cost, and a small
+  zero-exchange preference.
+- Grid correction now uses the last applied battery setpoint, not the planned
+  baseline. Added a closed-loop 900→700 W load-step test: the battery ramps down by
+  exactly 200 W once the meter is at zero.
 
 ### Fixed — 2.1.5
 
